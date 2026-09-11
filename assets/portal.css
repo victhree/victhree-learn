@@ -67,8 +67,6 @@ input.field:focus,select.field:focus{outline:none;border-color:var(--gold);box-s
 .dash-head .lede{color:var(--muted);margin:4px 0 0}
 .dash-head .greeting{font-size:clamp(19px,4.3vw,28px);color:var(--navy);font-weight:800;line-height:1.35;letter-spacing:.3px;margin:6px 0 18px;min-height:2.5em}
 .dash-head .greeting .g-l1,.dash-head .greeting .g-l2{display:block}
-.in-flag{display:inline-block;margin-left:9px}
-.in-flag .flag-svg{width:28px;height:19px;border:1px solid rgba(0,0,0,.12);border-radius:3px;display:inline-block;vertical-align:-4px}
 .caret{display:inline-block;color:var(--gold);font-weight:400;margin-left:1px;animation:blink 1s step-end infinite}
 .caret.done{animation:none;opacity:0}
 @keyframes blink{50%{opacity:0}}

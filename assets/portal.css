@@ -65,7 +65,10 @@ input.field:focus,select.field:focus{outline:none;border-color:var(--gold);box-s
 .dash-head{margin:6px 0 20px}
 .dash-head h1{font-size:clamp(24px,5vw,34px);letter-spacing:.5px}
 .dash-head .lede{color:var(--muted);margin:4px 0 0}
-.dash-head .greeting{white-space:pre-wrap;font-size:clamp(19px,4.3vw,28px);color:var(--navy);font-weight:800;line-height:1.35;letter-spacing:.3px;margin:6px 0 18px;min-height:2.5em}
+.dash-head .greeting{font-size:clamp(19px,4.3vw,28px);color:var(--navy);font-weight:800;line-height:1.35;letter-spacing:.3px;margin:6px 0 18px;min-height:2.5em}
+.dash-head .greeting .g-l1,.dash-head .greeting .g-l2{display:block}
+.in-flag{display:inline-block;margin-left:9px}
+.in-flag .flag-svg{width:28px;height:19px;border:1px solid rgba(0,0,0,.12);border-radius:3px;display:inline-block;vertical-align:-4px}
 .caret{display:inline-block;color:var(--gold);font-weight:400;margin-left:1px;animation:blink 1s step-end infinite}
 .caret.done{animation:none;opacity:0}
 @keyframes blink{50%{opacity:0}}
@@ -133,10 +136,10 @@ input.field:focus,select.field:focus{outline:none;border-color:var(--gold);box-s
 @media(max-width:420px){.stat-row{gap:12px}}
 
 /* ---- welcome row: greeting on the left, streak chip on the right ---- */
-.home-top{display:flex;align-items:stretch;gap:16px;margin:6px 0 16px}
+.home-top{display:flex;align-items:center;gap:16px;margin:6px 0 16px}
 .home-top .dash-head{flex:1;margin:0;display:flex;flex-direction:column;justify-content:center}
 .streak-chip{flex:0 0 auto;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:11px;white-space:nowrap;
-  background:var(--white);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 24px}
+  background:var(--white);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:var(--radius);box-shadow:var(--shadow);padding:6px 24px}
 .streak-chip .sc-flame{font-size:20px;line-height:1}
 .streak-chip .sc-label{font-size:13px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
 .streak-chip .sc-num{font-size:26px;font-weight:800;color:var(--navy);line-height:1}

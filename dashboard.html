@@ -27,7 +27,10 @@
   <!-- ===== HOME ===== -->
   <section id="v-home">
     <div class="home-top">
-      <div class="dash-head"><h1 class="greeting"><span id="typedText"></span><span class="caret" id="caret" aria-hidden="true">|</span></h1></div>
+      <div class="dash-head"><h1 class="greeting">
+        <span class="g-l1"><span id="typedName"></span><span class="in-flag" id="inFlag" hidden><svg class="flag-svg" viewBox="0 0 30 20" role="img" aria-label="India"><rect width="30" height="20" rx="2" fill="#fff"/><rect width="30" height="6.67" fill="#FF9933"/><rect y="13.33" width="30" height="6.67" fill="#138808"/><circle cx="15" cy="10" r="2.5" fill="none" stroke="#000080" stroke-width=".9"/></svg></span></span>
+        <span class="g-l2"><span id="typedGreet"></span><span class="caret" id="caret" aria-hidden="true">|</span></span>
+      </h1></div>
       <div class="streak-chip">
         <span class="sc-flame" aria-hidden="true">&#128293;</span>
         <span class="sc-label">Study streak</span>
@@ -199,23 +202,28 @@
   })();
 
   // Full welcome message, typed out: "Welcome, <name>." + a random greeting line.
-  function typeGreeting(name){
-    var gs = window.GREETINGS || [];
-    var greet = gs.length ? gs[Math.floor(Math.random()*gs.length)] : "Let's make today count.";
-    var line1 = name ? ("Welcome, " + name + " 🇮🇳") : "Welcome back.";
-    typeOut(line1 + "\n" + greet);
-  }
-  function typeOut(msg){
-    var el = document.getElementById("typedText"), caret = document.getElementById("caret");
-    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      el.textContent = msg; if (caret) caret.classList.add("done"); return;
-    }
-    var chars = Array.from(msg), i = 0;
+  function typeChars(el, text, done){
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var chars = Array.from(text);
+    if (reduce) { el.textContent = text; if (done) done(); return; }
+    var i = 0;
     (function tick(){
       el.textContent = chars.slice(0, i).join("");
       if (i < chars.length) { i++; setTimeout(tick, 42); }
-      else if (caret) { caret.classList.add("done"); }
+      else if (done) { done(); }
     })();
+  }
+  function typeGreeting(name){
+    var gs = window.GREETINGS || [];
+    var greet = gs.length ? gs[Math.floor(Math.random()*gs.length)] : "Let's make today count.";
+    var nameLine = name ? ("Welcome, " + name) : "Welcome back";
+    var caret = document.getElementById("caret");
+    if (caret) caret.style.visibility = "hidden";
+    typeChars(document.getElementById("typedName"), nameLine, function(){
+      if (name) document.getElementById("inFlag").hidden = false;
+      if (caret) caret.style.visibility = "";
+      typeChars(document.getElementById("typedGreet"), greet, function(){ if (caret) caret.classList.add("done"); });
+    });
   }
 
   // View switching (single page, no reloads).

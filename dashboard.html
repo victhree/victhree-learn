@@ -103,6 +103,15 @@
     </div>
   </section>
 
+  <!-- ===== NOTES ===== -->
+  <section id="v-notes" class="hide">
+    <a class="back-link" id="back-notes" href="#">&larr; Home</a>
+    <div class="section-title">Notes</div>
+    <p class="muted" style="margin:-8px 0 16px;font-size:13.5px">Each topic's notes open at 6 PM the evening before its video.</p>
+    <div id="notes-msg"></div>
+    <div class="topic-list" id="notes-list"></div>
+  </section>
+
   <!-- ===== CURRENT AFFAIRS ===== -->
   <section id="v-ca" class="hide">
     <a class="back-link" id="back-ca" href="#">&larr; Home</a>
@@ -153,7 +162,7 @@
   }
 
   // View switching (single page, no reloads).
-  var VIEWS = ["v-home","v-lectures","v-geography","v-empty","v-ca"];
+  var VIEWS = ["v-home","v-lectures","v-geography","v-empty","v-notes","v-ca"];
   function showView(id){
     VIEWS.forEach(function(v){ document.getElementById(v).classList.toggle("hide", v!==id); });
     window.scrollTo(0,0);
@@ -161,11 +170,11 @@
 
   // Drive folder navigation through the URL hash so the browser's back/forward
   // buttons (and the in-page back links) work normally.
-  var ROUTES = { "":"v-home", "home":"v-home", "lectures":"v-lectures", "geography":"v-geography", "notes":"v-empty", "current-affairs":"v-ca" };
+  var ROUTES = { "":"v-home", "home":"v-home", "lectures":"v-lectures", "geography":"v-geography", "notes":"v-notes", "current-affairs":"v-ca" };
   function renderRoute(){
     var h = (location.hash || "").replace(/^#/, "");
     var view = ROUTES[h] || "v-home";
-    if (view === "v-empty") document.getElementById("empty-title").textContent = "Notes";
+    if (view === "v-notes") loadNotes();
     if (view === "v-ca") loadCA();
     showView(view);
   }
@@ -180,7 +189,40 @@
   on("back-home", function(){ history.back(); });
   on("back-lectures", function(){ history.back(); });
   on("back-empty", function(){ history.back(); });
+  on("back-notes", function(){ history.back(); });
   on("back-ca", function(){ history.back(); });
+
+  // Notes folder: list every topic's notes; a note opens once it has unlocked (6 PM the evening before).
+  var notesLoaded = false;
+  async function loadNotes(){
+    if (notesLoaded) return; notesLoaded = true;
+    var list = document.getElementById("notes-list"), msg = document.getElementById("notes-msg");
+    var r = await api("/api/lessons");
+    if (!r || !r.ok) { notesLoaded = false; msg.innerHTML = '<div class="msg err">Could not load notes. Please try again.</div>'; return; }
+    var items = (r.data.lessons || []).filter(function(l){ return l.hasNotes; });
+    if (!items.length) {
+      msg.innerHTML = '<div class="empty-state"><span class="empty-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 16h4"/></svg></span><h3>No notes yet</h3><p class="muted">Notes will appear here as topics are added.</p></div>';
+      return;
+    }
+    list.innerHTML = "";
+    items.forEach(function(l){
+      var name = (window.TOPIC_NAMES && window.TOPIC_NAMES[l.day]) || l.title;
+      var unlocked = (l.notesUnlocked !== undefined) ? l.notesUnlocked : l.unlocked; // fallback for old Worker
+      var el = document.createElement(unlocked ? "a" : "div");
+      el.className = "topic-row " + (unlocked ? "open" : "locked");
+      if (unlocked) el.href = "#";
+      var main = document.createElement("span"); main.className = "tr-main";
+      var num = document.createElement("span"); num.className = "tr-num"; num.textContent = "Topic " + l.day;
+      var ttl = document.createElement("span"); ttl.className = "tr-title"; ttl.textContent = name;
+      main.appendChild(num); main.appendChild(ttl);
+      var st = document.createElement("span"); st.className = "tr-status";
+      if (unlocked) { st.style.color = "var(--navy)"; st.innerHTML = NOTE_SVG + 'Open PDF'; }
+      else { st.innerHTML = LOCK_SVG + 'Unlocks ' + fmtUnlock(l.notesUnlockAt); }
+      el.appendChild(main); el.appendChild(st);
+      if (unlocked) el.addEventListener("click", function(e){ e.preventDefault(); openNotes(l.day); });
+      list.appendChild(el);
+    });
+  }
 
   // Current Affairs: list the monthly magazine PDFs (open to all), each opening its file.
   var caLoaded = false;

@@ -30,7 +30,6 @@
     <div class="progress-card" id="progressCard" hidden>
       <div class="progress-top"><span class="progress-label">Course progress</span><span class="progress-pct" id="progPct">0%</span></div>
       <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
-      <div class="progress-sub" id="progSub"></div>
     </div>
     <div class="tiles">
       <a class="tile" id="nav-lectures" href="#">
@@ -93,7 +92,7 @@
     <div class="topic-list" id="topics"></div>
   </section>
 
-  <!-- ===== EMPTY FOLDER (Notes / Current Affairs) ===== -->
+  <!-- ===== EMPTY FOLDER (Notes) ===== -->
   <section id="v-empty" class="hide">
     <a class="back-link" id="back-empty" href="#">&larr; Home</a>
     <div class="section-title" id="empty-title">Folder</div>
@@ -102,6 +101,15 @@
       <h3>Nothing here yet</h3>
       <p class="muted">This section will fill up as content is added.</p>
     </div>
+  </section>
+
+  <!-- ===== CURRENT AFFAIRS ===== -->
+  <section id="v-ca" class="hide">
+    <a class="back-link" id="back-ca" href="#">&larr; Home</a>
+    <div class="section-title">Current Affairs</div>
+    <p class="muted" style="margin:-8px 0 16px;font-size:13.5px">Monthly current-affairs magazine. All issues are open.</p>
+    <div id="ca-msg"></div>
+    <div class="topic-list" id="ca-list"></div>
   </section>
 
 </main>
@@ -145,7 +153,7 @@
   }
 
   // View switching (single page, no reloads).
-  var VIEWS = ["v-home","v-lectures","v-geography","v-empty"];
+  var VIEWS = ["v-home","v-lectures","v-geography","v-empty","v-ca"];
   function showView(id){
     VIEWS.forEach(function(v){ document.getElementById(v).classList.toggle("hide", v!==id); });
     window.scrollTo(0,0);
@@ -153,12 +161,12 @@
 
   // Drive folder navigation through the URL hash so the browser's back/forward
   // buttons (and the in-page back links) work normally.
-  var ROUTES = { "":"v-home", "home":"v-home", "lectures":"v-lectures", "geography":"v-geography", "notes":"v-empty", "current-affairs":"v-empty" };
-  var EMPTY_TITLES = { "notes":"Notes", "current-affairs":"Current Affairs" };
+  var ROUTES = { "":"v-home", "home":"v-home", "lectures":"v-lectures", "geography":"v-geography", "notes":"v-empty", "current-affairs":"v-ca" };
   function renderRoute(){
     var h = (location.hash || "").replace(/^#/, "");
     var view = ROUTES[h] || "v-home";
-    if (view === "v-empty") document.getElementById("empty-title").textContent = EMPTY_TITLES[h] || "Folder";
+    if (view === "v-empty") document.getElementById("empty-title").textContent = "Notes";
+    if (view === "v-ca") loadCA();
     showView(view);
   }
   window.addEventListener("hashchange", renderRoute);
@@ -172,6 +180,33 @@
   on("back-home", function(){ history.back(); });
   on("back-lectures", function(){ history.back(); });
   on("back-empty", function(){ history.back(); });
+  on("back-ca", function(){ history.back(); });
+
+  // Current Affairs: list the monthly magazine PDFs (open to all), each opening its file.
+  var caLoaded = false;
+  async function loadCA(){
+    if (caLoaded) return; caLoaded = true;
+    var list = document.getElementById("ca-list"), msg = document.getElementById("ca-msg");
+    var r = await api("/api/ca");
+    if (!r || !r.ok) { caLoaded = false; msg.innerHTML = '<div class="msg err">Could not load current affairs. Please try again.</div>'; return; }
+    var issues = (r.data && r.data.issues) || [];
+    if (!issues.length) {
+      msg.innerHTML = '<div class="empty-state"><span class="empty-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5h13v14H4z"/><path d="M17 8h3v9a2 2 0 0 1-2 2h-1z"/><path d="M7 8h7M7 11h7M7 14h5"/></svg></span><h3>No issues yet</h3><p class="muted">Monthly magazines will appear here as they are added.</p></div>';
+      return;
+    }
+    list.innerHTML = "";
+    issues.forEach(function(it){
+      var a = document.createElement("a"); a.className = "topic-row open"; a.href = "#";
+      var main = document.createElement("span"); main.className = "tr-main";
+      var num = document.createElement("span"); num.className = "tr-num"; num.textContent = "Magazine";
+      var ttl = document.createElement("span"); ttl.className = "tr-title"; ttl.textContent = it.title;
+      main.appendChild(num); main.appendChild(ttl);
+      var st = document.createElement("span"); st.className = "tr-status"; st.style.color = "var(--navy)"; st.textContent = "Open PDF";
+      a.appendChild(main); a.appendChild(st);
+      a.addEventListener("click", function(e){ e.preventDefault(); openCaFile(it.file); });
+      list.appendChild(a);
+    });
+  }
 
   var LOCK_SVG='<svg class="lock-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
   var PLAY_SVG='<svg class="lock-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l14 8-14 8z"/></svg>';
@@ -217,7 +252,6 @@
     var pct = total ? Math.round(done / total * 100) : 0;
     document.getElementById("progPct").textContent = pct + "%";
     document.getElementById("progFill").style.width = pct + "%";
-    document.getElementById("progSub").textContent = done + " of " + total + " topics completed";
     document.getElementById("progressCard").hidden = false;
   })();
 

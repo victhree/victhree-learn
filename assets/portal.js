@@ -72,6 +72,17 @@ async function openNotes(day) {
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
+// Open one current-affairs magazine PDF (fetched with the auth header, opened in a new tab).
+async function openCaFile(file) {
+  const token = getToken();
+  const res = await fetch(API + "/api/ca-file?file=" + encodeURIComponent(file), { headers: { "Authorization": "Bearer " + token } });
+  if (!res.ok) { alert("This issue isn't available."); return; }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank");
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
 // Redirect to login if not signed in. Call at the top of every protected page.
 function requireLogin() { if (!getToken()) { location.href = "index.html"; return false; } return true; }
 

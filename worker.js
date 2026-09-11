@@ -37,7 +37,7 @@ const LESSONS = {
   // Storage (e.g. trial/day1.pdf), set its notes back to that path and the
   // "Open today's notes" button reappears for that day. Add days 6-11 here too.
   trial: [
-    { day: 1, title: "The Universe and Earth's Interior", video: "cdcea11d-9803-433a-acc6-79ecacd67119", notes: "trial/day1.pdf" },
+    { day: 1, title: "The Universe and Earth's Interior", video: "cdcea11d-9803-433a-acc6-79ecacd67119", notes: "trial/day1.pdf", open: true },
     { day: 2, title: "Volcanism and Earthquakes",        video: "22950dfc-221a-4d0c-966b-af81b0ac7e90", notes: "trial/day2.pdf" },
     { day: 3, title: "Rocks and Weathering",             video: "04e32b4a-7ad2-40c1-8981-db364c32d51d", notes: "trial/day3.pdf" },
     { day: 4, title: "Atmosphere and Rainfall",          video: "738bc535-c548-4d5d-b6e5-8e909bea67f4", notes: "trial/day4.pdf" },
@@ -75,6 +75,8 @@ export default {
       if (path === "/api/lessons"      && request.method === "GET")  return await withAuth(request, env, cors, lessons);
       if (path === "/api/video"        && request.method === "GET")  return await withAuth(request, env, cors, video, url);
       if (path === "/api/notes"        && request.method === "GET")  return await withAuth(request, env, cors, notes, url);
+      if (path === "/api/ca"           && request.method === "GET")  return await withAuth(request, env, cors, caList, url);
+      if (path === "/api/ca-file"      && request.method === "GET")  return await withAuth(request, env, cors, caFile, url);
       if (path === "/api/admin/add-student" && request.method === "POST") return await adminAddStudent(request, env, cors);
       if (path === "/api/admin/students"    && request.method === "GET")  return await adminListStudents(request, env, cors);
       return json({ error: "not_found" }, 404, cors);
@@ -165,7 +167,7 @@ async function lessons(env, cors, student) {
   const list = LESSONS[student.product] || [];
   const now = Date.now();
   const out = list.map(l => {
-    const videoUnlockAt = unlockTime(student.start_date, l.day);
+    const videoUnlockAt = l.open ? 0 : unlockTime(student.start_date, l.day);
     const hasNotes = !!l.notes;
     const notesUnlockAt = hasNotes ? (videoUnlockAt - NOTES_LEAD_MS) : null;
     const availableAt = hasNotes ? notesUnlockAt : videoUnlockAt; // when the topic first opens
@@ -184,7 +186,7 @@ async function video(env, cors, student, url) {
   const lesson = (LESSONS[student.product] || []).find(l => l.day === day);
   if (!lesson) return json({ error: "no_such_day" }, 404, cors);
 
-  const videoUnlockAt = unlockTime(student.start_date, lesson.day);
+  const videoUnlockAt = lesson.open ? 0 : unlockTime(student.start_date, lesson.day);
   const hasNotes = !!lesson.notes;
   const notesUnlockAt = hasNotes ? (videoUnlockAt - NOTES_LEAD_MS) : null;
   const availableAt = hasNotes ? notesUnlockAt : videoUnlockAt;
@@ -210,8 +212,8 @@ async function notes(env, cors, student, url) {
   const lesson = (LESSONS[student.product] || []).find(l => l.day === day);
   if (!lesson || !lesson.notes) return json({ error: "no_notes" }, 404, cors);
 
-  // Notes open 6 PM the evening before the video (13 h earlier).
-  const notesUnlockAt = unlockTime(student.start_date, lesson.day) - NOTES_LEAD_MS;
+  // Notes open 6 PM the evening before the video (13 h earlier); "open" topics are always available.
+  const notesUnlockAt = lesson.open ? 0 : (unlockTime(student.start_date, lesson.day) - NOTES_LEAD_MS);
   if (Date.now() < notesUnlockAt) return json({ error: "locked", unlockAt: notesUnlockAt }, 403, cors);
 
   // Pull the PDF from Bunny Storage server-side; the student never sees the source.
@@ -223,6 +225,48 @@ async function notes(env, cors, student, url) {
   headers.set("Content-Type", "application/pdf");
   headers.set("Content-Disposition", `inline; filename="day${day}.pdf"`);
   return new Response(res.body, { status: 200, headers });
+}
+
+/* ========================== CURRENT AFFAIRS ============================== */
+
+// Lists the PDFs in the Bunny Storage "current-affairs/" folder. Open to every
+// enrolled student (no drip). Upload a PDF there and it appears automatically.
+async function caList(env, cors, student) {
+  const listUrl = `https://${env.BUNNY_STORAGE_HOST}/${env.BUNNY_STORAGE_ZONE}/current-affairs/`;
+  const res = await fetch(listUrl, { headers: { AccessKey: env.BUNNY_STORAGE_KEY } });
+  if (!res.ok) return json({ issues: [] }, 200, cors);
+  let items = [];
+  try { items = await res.json(); } catch { items = []; }
+  const issues = (items || [])
+    .filter(o => o && !o.IsDirectory && /\.pdf$/i.test(o.ObjectName || ""))
+    .map(o => ({ file: o.ObjectName, title: caTitle(o.ObjectName) }))
+    .sort((a, b) => (a.file < b.file ? 1 : -1)); // newest filename first
+  return json({ issues }, 200, cors);
+}
+
+// Streams one current-affairs PDF (open to all enrolled students).
+async function caFile(env, cors, student, url) {
+  const file = url.searchParams.get("file") || "";
+  if (!/^[A-Za-z0-9._-]+\.pdf$/i.test(file)) return json({ error: "bad_file" }, 400, cors); // no slashes / traversal
+  const srcUrl = `https://${env.BUNNY_STORAGE_HOST}/${env.BUNNY_STORAGE_ZONE}/current-affairs/${file}`;
+  const res = await fetch(srcUrl, { headers: { AccessKey: env.BUNNY_STORAGE_KEY } });
+  if (!res.ok) return json({ error: "unavailable" }, 502, cors);
+  const headers = new Headers(cors);
+  headers.set("Content-Type", "application/pdf");
+  headers.set("Content-Disposition", `inline; filename="${file}"`);
+  return new Response(res.body, { status: 200, headers });
+}
+
+// "2026-09.pdf" -> "September 2026"; otherwise a tidied filename.
+function caTitle(name) {
+  const base = String(name).replace(/\.pdf$/i, "");
+  const m = base.match(/^(\d{4})-(\d{2})$/);
+  if (m) {
+    const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const mo = parseInt(m[2], 10);
+    if (mo >= 1 && mo <= 12) return months[mo - 1] + " " + m[1];
+  }
+  return base.replace(/[-_]/g, " ");
 }
 
 /* ============================== ADMIN API ================================ */

@@ -21,7 +21,7 @@ h1,h2,h3{color:var(--navy);margin:0 0 .4em;line-height:1.15}
 
 /* ---- header / banner ---- */
 .site-header{background:#02224b;border-bottom:3px solid var(--gold)} /* matches the banner image's blue */
-.banner-wrap{max-width:980px;margin:0 auto;position:relative}
+.banner-wrap{max-width:none;margin:0 auto;position:relative}  /* full width: only the banner's blue shows, no seam */
 .banner-wrap img{display:block;width:100%;height:auto}
 .banner-link{display:block;cursor:pointer}
 .hdr-action{position:absolute;bottom:10px;right:12px;z-index:2;

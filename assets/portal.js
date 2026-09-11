@@ -39,6 +39,37 @@ function markWatched(product, day){
 function isWatched(product, day){ return !!getProgress()[product + "#" + day]; }
 function countWatched(product, days){ var p = getProgress(); var n = 0; (days || []).forEach(function(d){ if (p[product + "#" + d]) n++; }); return n; }
 
+/* ---- exam countdown ----
+   Set the REAL exam dates below (YYYY-MM-DD). These are PLACEHOLDERS. Past
+   dates are ignored; the soonest upcoming exam is shown on the dashboard. */
+window.EXAMS = [
+  { name: "CDS",   date: "2027-04-11" },   // <-- replace with the real CDS date
+  { name: "AFCAT", date: "2027-02-14" }    // <-- replace with the real AFCAT date
+];
+function daysUntil(dateStr){ return Math.ceil((new Date(dateStr + "T00:00:00") - new Date()) / 86400000); }
+function nextExam(){
+  return (window.EXAMS || [])
+    .filter(function(e){ return e.date && daysUntil(e.date) >= 0; })
+    .sort(function(a, b){ return daysUntil(a.date) - daysUntil(b.date); })[0] || null;
+}
+
+/* ---- study streak (consecutive days the student opened the portal) ---- */
+function todayStr(){ var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+function bumpStreak(){
+  try {
+    var today = todayStr();
+    var s = JSON.parse(localStorage.getItem("vt_streak") || "null");
+    if (!s) s = { last: today, count: 1 };
+    else if (s.last !== today) {
+      var diff = Math.round((new Date(today + "T00:00:00") - new Date(s.last + "T00:00:00")) / 86400000);
+      s.count = (diff === 1) ? (s.count || 0) + 1 : 1;
+      s.last = today;
+    }
+    localStorage.setItem("vt_streak", JSON.stringify(s));
+    return s.count;
+  } catch { return 1; }
+}
+
 function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch { return ""; } }
 function setToken(t) { try { localStorage.setItem(TOKEN_KEY, t); } catch {} }
 function clearToken() { try { localStorage.removeItem(TOKEN_KEY); } catch {} }

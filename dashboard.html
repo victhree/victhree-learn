@@ -27,6 +27,27 @@
   <!-- ===== HOME ===== -->
   <section id="v-home">
     <div class="dash-head"><h1 class="greeting"><span id="typedText"></span><span class="caret" id="caret" aria-hidden="true">|</span></h1></div>
+
+    <a class="today-card" id="todayCard" href="#" hidden>
+      <span class="today-k">Today's focus</span>
+      <span class="today-title" id="todayTitle"></span>
+      <span class="today-status" id="todayStatus"></span>
+      <span class="today-go" id="todayGo">Open &rarr;</span>
+    </a>
+
+    <div class="stat-row">
+      <div class="stat-card" id="examCard" hidden>
+        <div class="stat-k" id="examName">Exam</div>
+        <div class="stat-num" id="examNum">--</div>
+        <div class="stat-sub">days to go</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-k">&#128293; Study streak</div>
+        <div class="stat-num" id="streakNum">1</div>
+        <div class="stat-sub" id="streakSub">day</div>
+      </div>
+    </div>
+
     <div class="progress-card" id="progressCard" hidden>
       <div class="progress-top"><span class="progress-label">Course progress</span><span class="progress-pct" id="progPct">0%</span></div>
       <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
@@ -139,6 +160,19 @@
     var q = qs[Math.floor(Math.random()*qs.length)];
     document.getElementById("quoteText").textContent = "“" + q.t + "”";
     document.getElementById("quoteAuthor").textContent = q.a ? "— " + q.a : "";
+  })();
+
+  // Study streak + exam countdown (no login data needed).
+  (function(){
+    var streak = bumpStreak();
+    document.getElementById("streakNum").textContent = streak;
+    document.getElementById("streakSub").textContent = streak === 1 ? "day" : "days";
+    var e = nextExam();
+    if (e) {
+      document.getElementById("examName").textContent = "To " + e.name;
+      document.getElementById("examNum").textContent = daysUntil(e.date);
+      document.getElementById("examCard").hidden = false;
+    }
   })();
 
   // Full welcome message, typed out: "Welcome, <name>." + a random greeting line.
@@ -298,6 +332,23 @@
     document.getElementById("progPct").textContent = pct + "%";
     document.getElementById("progFill").style.width = pct + "%";
     document.getElementById("progressCard").hidden = false;
+
+    // ----- today's focus card -----
+    var avail = r.data.lessons.filter(function(l){ return l.available; });
+    if (avail.length) {
+      var cur = avail[avail.length - 1];
+      var cname = (window.TOPIC_NAMES && window.TOPIC_NAMES[cur.day]) || cur.title;
+      var w = isWatched(product, cur.day), st, go;
+      if (w) { st = "Completed. Revise it or take the test."; go = "Revisit &rarr;"; }
+      else if (cur.videoUnlocked) { st = "Your video is open. Watch today's lecture."; go = "Watch now &rarr;"; }
+      else { st = "Today's notes are ready. The video opens at 7 AM."; go = "Read notes &rarr;"; }
+      document.getElementById("todayTitle").textContent = "Topic " + cur.day + ": " + cname;
+      document.getElementById("todayStatus").textContent = st;
+      document.getElementById("todayGo").innerHTML = go;
+      var tc = document.getElementById("todayCard");
+      tc.setAttribute("href", "watch.html?day=" + cur.day);
+      tc.hidden = false;
+    }
   })();
 
   renderRoute();  // show the view for the current URL hash on load (e.g. #geography from the watch page)

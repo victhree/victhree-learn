@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lesson | VicThree Defence</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="assets/portal.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="dashboard.html">VicThree <b>Defence</b> · Course</a>
+    <a class="logout" id="logout">Log out</a>
+  </div>
+</header>
+
+<main class="wrap watch">
+  <a class="back-link" href="dashboard.html">&larr; All days</a>
+  <h1 id="title">Lesson</h1>
+  <div id="msg"></div>
+
+  <div class="player" id="player">
+    <div class="watermark" id="wm"></div>
+    <iframe id="frame" allow="encrypted-media;fullscreen" allowfullscreen loading="lazy"></iframe>
+  </div>
+
+  <div class="watch-actions" id="actions"></div>
+</main>
+
+<script src="assets/portal.js"></script>
+<script>
+  if (!requireLogin()) { /* redirected */ }
+  document.getElementById("logout").addEventListener("click", logout);
+
+  var day = parseInt(new URLSearchParams(location.search).get("day"), 10);
+
+  (async function(){
+    // Watermark the player with the student's email (a screen-recording deterrent).
+    var meRes = await api("/api/me");
+    if (meRes && meRes.data && meRes.data.email) document.getElementById("wm").textContent = meRes.data.email;
+
+    if (!day) { fail("No lesson selected."); return; }
+    var r = await api("/api/video?day=" + day);
+    if (r && r.ok && r.data && r.data.embedUrl) {
+      document.getElementById("title").textContent = r.data.title || ("Day " + day);
+      document.getElementById("frame").src = r.data.embedUrl;
+      var actions = document.getElementById("actions");
+      if (r.data.hasNotes) {
+        var btn = document.createElement("button");
+        btn.className = "btn primary"; btn.textContent = "Open today's notes (PDF)";
+        btn.addEventListener("click", function(){ openNotes(day); });
+        actions.appendChild(btn);
+      }
+      var back = document.createElement("a");
+      back.className = "btn ghost"; back.href = "dashboard.html"; back.textContent = "Back to all days";
+      actions.appendChild(back);
+    } else if (r && r.status === 403) {
+      var when = (r.data && r.data.unlockAt) ? fmtUnlock(r.data.unlockAt) : "later";
+      fail("This day hasn't unlocked yet. It opens at " + when + ".");
+    } else {
+      fail("This lesson could not be loaded.");
+    }
+  })();
+
+  function fail(text){
+    document.getElementById("player").classList.add("hide");
+    document.getElementById("msg").innerHTML = '<div class="msg err">' + text + '</div>' +
+      '<p><a class="btn ghost" href="dashboard.html">Back to all days</a></p>';
+  }
+</script>
+</body>
+</html>

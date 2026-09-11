@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your Course | VicThree Defence</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="assets/portal.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="dashboard.html">VicThree <b>Defence</b> · Course</a>
+    <a class="logout" id="logout">Log out</a>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="dash-head">
+    <h1 id="hello">Your course</h1>
+    <p class="lede">Each day unlocks at 7:00 AM India time. Finish today before tomorrow opens.</p>
+  </div>
+  <div id="msg"></div>
+  <section class="days" id="days" aria-label="Course days"></section>
+</main>
+
+<script src="assets/portal.js"></script>
+<script>
+  if (!requireLogin()) { /* redirected */ }
+  document.getElementById("logout").addEventListener("click", logout);
+
+  var LOCK_SVG = '<svg class="lock-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+  var PLAY_SVG = '<svg class="lock-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l14 8-14 8z"/></svg>';
+
+  (async function(){
+    var meRes = await api("/api/me");
+    if (meRes && meRes.data && meRes.data.name) {
+      document.getElementById("hello").textContent = "Welcome, " + meRes.data.name.split(" ")[0];
+    }
+    var r = await api("/api/lessons");
+    if (!r || !r.ok) { document.getElementById("msg").innerHTML = '<div class="msg err">Could not load your course. Please try again.</div>'; return; }
+    var days = document.getElementById("days");
+    days.innerHTML = "";
+    r.data.lessons.forEach(function(l){
+      var el = document.createElement(l.unlocked ? "a" : "div");
+      el.className = "day " + (l.unlocked ? "open" : "locked");
+      if (l.unlocked) el.href = "watch.html?day=" + l.day;
+      el.innerHTML =
+        '<span class="dnum">Day ' + l.day + '</span>' +
+        '<h3>' + l.title + '</h3>' +
+        '<span class="status">' + (l.unlocked ? PLAY_SVG + 'Open now' : LOCK_SVG + 'Unlocks ' + fmtUnlock(l.unlockAt)) + '</span>';
+      days.appendChild(el);
+    });
+  })();
+</script>
+</body>
+</html>

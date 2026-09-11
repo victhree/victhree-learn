@@ -1,0 +1,52 @@
+/* =============================================================================
+   VicThree Learn — shared frontend helpers.
+   >>> After you deploy the Worker, paste its URL into API below. That is the
+   >>> ONLY value the frontend needs. No secrets ever live in the frontend.
+   ============================================================================= */
+const API = "https://victhree-portal.anmolxsharma.workers.dev";
+
+const TOKEN_KEY = "vt_portal_token";
+
+function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch { return ""; } }
+function setToken(t) { try { localStorage.setItem(TOKEN_KEY, t); } catch {} }
+function clearToken() { try { localStorage.removeItem(TOKEN_KEY); } catch {} }
+function logout() { clearToken(); location.href = "index.html"; }
+
+// Call the Worker API. Adds the login token automatically. Returns parsed JSON.
+async function api(path, opts) {
+  opts = opts || {};
+  const headers = Object.assign({}, opts.headers || {});
+  const token = getToken();
+  if (token) headers["Authorization"] = "Bearer " + token;
+  if (opts.body && typeof opts.body !== "string") {
+    headers["Content-Type"] = "application/json";
+    opts.body = JSON.stringify(opts.body);
+  }
+  const res = await fetch(API + path, { method: opts.method || "GET", headers, body: opts.body });
+  // Any protected page kicks you back to login if the token is missing/expired.
+  if (res.status === 401 && opts.guard !== false) { clearToken(); location.href = "index.html"; return; }
+  let data = null; try { data = await res.json(); } catch {}
+  return { ok: res.ok, status: res.status, data };
+}
+
+// Fetch the notes PDF as a blob (needs the auth header) and open it in a new tab.
+async function openNotes(day) {
+  const token = getToken();
+  const res = await fetch(API + "/api/notes?day=" + day, { headers: { "Authorization": "Bearer " + token } });
+  if (!res.ok) { alert("Notes are not available yet."); return; }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank");
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+// Redirect to login if not signed in. Call at the top of every protected page.
+function requireLogin() { if (!getToken()) { location.href = "index.html"; return false; } return true; }
+
+// Friendly IST date/time for unlock timestamps.
+function fmtUnlock(ms) {
+  const d = new Date(ms);
+  return d.toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true
+  });
+}

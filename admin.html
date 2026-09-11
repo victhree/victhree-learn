@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin | VicThree Defence</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="assets/portal.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="admin.html">VicThree <b>Defence</b> · Admin</a>
+    <a class="logout" id="forget">Forget admin key</a>
+  </div>
+</header>
+
+<main class="wrap admin">
+
+  <!-- Ask for the admin key once; stored only in this browser. -->
+  <div class="card" id="keycard">
+    <h2>Admin access</h2>
+    <p class="muted" style="font-family:var(--sans);font-size:.9rem">Enter your admin key. It is kept only in this browser and sent with each admin action.</p>
+    <div id="keymsg"></div>
+    <label for="adminkey">Admin key</label>
+    <input class="field" type="password" id="adminkey" placeholder="paste ADMIN_KEY">
+    <button class="btn primary" id="savekey">Continue</button>
+  </div>
+
+  <div id="panel" class="hide">
+    <div class="card">
+      <h2>Add / update a student</h2>
+      <p class="muted" style="font-family:var(--sans);font-size:.9rem">Adds a new paying student, or updates an existing one (use product = Full course to upgrade a trial student).</p>
+      <div id="addmsg"></div>
+      <div class="row">
+        <div><label for="s-name">Name</label><input class="field" id="s-name" placeholder="Full name"></div>
+        <div><label for="s-email">Email</label><input class="field" id="s-email" type="email" placeholder="you@example.com"></div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="s-product">Product</label>
+          <select class="field" id="s-product">
+            <option value="trial">₹999 Geography trial</option>
+            <option value="course">Full 90-day course</option>
+          </select>
+        </div>
+        <div><label for="s-start">Start date (Day 1)</label><input class="field" id="s-start" type="date"></div>
+      </div>
+      <button class="btn primary" id="addbtn">Add / update student</button>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-bottom:16px">Enrolled students</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Product</th><th>Start</th><th>Day</th><th>Status</th></tr></thead>
+          <tbody id="rows"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script src="assets/portal.js"></script>
+<script>
+  var AK_KEY = "vt_admin_key";
+  function adminKey(){ try { return localStorage.getItem(AK_KEY) || ""; } catch { return ""; } }
+  function setAdminKey(k){ try { localStorage.setItem(AK_KEY, k); } catch {} }
+
+  async function adminApi(path, opts){
+    opts = opts || {};
+    var headers = Object.assign({ "X-Admin-Key": adminKey() }, opts.headers || {});
+    if (opts.body && typeof opts.body !== "string"){ headers["Content-Type"]="application/json"; opts.body=JSON.stringify(opts.body); }
+    var res = await fetch(API + path, { method: opts.method||"GET", headers: headers, body: opts.body });
+    var data=null; try{ data=await res.json(); }catch{}
+    return { ok:res.ok, status:res.status, data:data };
+  }
+
+  function show(id, cls, text){ document.getElementById(id).innerHTML = text ? '<div class="msg '+cls+'">'+text+'</div>' : ''; }
+
+  function enterPanel(){
+    document.getElementById("keycard").classList.add("hide");
+    document.getElementById("panel").classList.remove("hide");
+    // default start date = today
+    var t = new Date(Date.now()+330*60000).toISOString().slice(0,10);
+    document.getElementById("s-start").value = t;
+    loadStudents();
+  }
+
+  document.getElementById("savekey").addEventListener("click", async function(){
+    var k = document.getElementById("adminkey").value.trim();
+    if (!k){ show("keymsg","err","Enter your admin key."); return; }
+    setAdminKey(k);
+    var r = await adminApi("/api/admin/students");
+    if (r.status === 403){ show("keymsg","err","That admin key was rejected."); return; }
+    enterPanel();
+  });
+
+  document.getElementById("forget").addEventListener("click", function(){ try{localStorage.removeItem(AK_KEY);}catch{} location.reload(); });
+
+  document.getElementById("addbtn").addEventListener("click", async function(){
+    var body = {
+      name: document.getElementById("s-name").value.trim(),
+      email: document.getElementById("s-email").value.trim(),
+      product: document.getElementById("s-product").value,
+      startDate: document.getElementById("s-start").value
+    };
+    if (!body.name || !body.email){ show("addmsg","err","Name and email are required."); return; }
+    this.disabled=true; this.textContent="Saving…";
+    var r = await adminApi("/api/admin/add-student", { method:"POST", body:body });
+    this.disabled=false; this.textContent="Add / update student";
+    if (r.ok){ show("addmsg","ok","Saved. "+body.email+" can now log in."); document.getElementById("s-name").value=""; document.getElementById("s-email").value=""; loadStudents(); }
+    else { show("addmsg","err","Could not save (" + (r.data && r.data.error || r.status) + ")."); }
+  });
+
+  async function loadStudents(){
+    var r = await adminApi("/api/admin/students");
+    var rows = document.getElementById("rows");
+    if (!r.ok){ rows.innerHTML = '<tr><td colspan="6" class="muted">Could not load.</td></tr>'; return; }
+    if (!r.data.students.length){ rows.innerHTML = '<tr><td colspan="6" class="muted">No students yet.</td></tr>'; return; }
+    rows.innerHTML = r.data.students.map(function(s){
+      return '<tr><td>'+esc(s.name)+'</td><td>'+esc(s.email)+'</td>'+
+        '<td><span class="pill '+(s.product==="course"?"course":"trial")+'">'+(s.product==="course"?"Course":"Trial")+'</span></td>'+
+        '<td>'+esc(s.start_date)+'</td><td>'+s.currentDay+' / '+s.totalDays+'</td><td>'+esc(s.status)+'</td></tr>';
+    }).join("");
+  }
+
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+
+  if (adminKey()) enterPanel();
+</script>
+</body>
+</html>

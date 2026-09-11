@@ -148,7 +148,7 @@ input.field:focus,select.field:focus{outline:none;border-color:var(--gold);box-s
 
 /* ---- exam countdown (LED "bomb timer" like the vocab site, on the page, no box) ---- */
 .exam-band{margin:34px 0 8px;text-align:center}
-.exam-timers{display:flex;flex-wrap:wrap;justify-content:center;gap:44px}
+.exam-timers{display:flex;flex-wrap:wrap;justify-content:space-around;gap:40px}
 .exam-timer{text-align:center}
 .exam-timer .et-name{font-size:11px;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;font-weight:700}
 .exam-timer .et-date{font-size:10.5px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:3px}

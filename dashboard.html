@@ -202,7 +202,7 @@
   function typeGreeting(name){
     var gs = window.GREETINGS || [];
     var greet = gs.length ? gs[Math.floor(Math.random()*gs.length)] : "Let's make today count.";
-    var line1 = name ? ("Welcome, " + name + ".") : "Welcome back.";
+    var line1 = name ? ("Welcome, " + name + " 🇮🇳") : "Welcome back.";
     typeOut(line1 + "\n" + greet);
   }
   function typeOut(msg){
@@ -210,10 +210,10 @@
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       el.textContent = msg; if (caret) caret.classList.add("done"); return;
     }
-    var i = 0;
+    var chars = Array.from(msg), i = 0;
     (function tick(){
-      el.textContent = msg.slice(0, i);
-      if (i < msg.length) { i++; setTimeout(tick, 42); }
+      el.textContent = chars.slice(0, i).join("");
+      if (i < chars.length) { i++; setTimeout(tick, 42); }
       else if (caret) { caret.classList.add("done"); }
     })();
   }

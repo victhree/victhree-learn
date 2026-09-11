@@ -38,16 +38,16 @@
         <span class="tile-title">Lectures</span>
         <span class="tile-sub">Watch your daily topics</span>
       </a>
-      <div class="tile locked">
+      <a class="tile" id="nav-notes" href="#">
         <span class="tile-ic"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 16h4"/></svg></span>
         <span class="tile-title">Notes</span>
-        <span class="tile-lock">Coming soon</span>
-      </div>
-      <div class="tile locked">
+        <span class="tile-sub">Study notes</span>
+      </a>
+      <a class="tile" id="nav-currentaffairs" href="#">
         <span class="tile-ic"><svg viewBox="0 0 24 24"><path d="M4 5h13v14H4z"/><path d="M17 8h3v9a2 2 0 0 1-2 2h-1z"/><path d="M7 8h7M7 11h7M7 14h5"/></svg></span>
         <span class="tile-title">Current Affairs</span>
-        <span class="tile-lock">Coming soon</span>
-      </div>
+        <span class="tile-sub">Monthly updates</span>
+      </a>
     </div>
     <div class="quote-tile">
       <p class="quote-text" id="quoteText">&nbsp;</p>
@@ -90,7 +90,18 @@
     <div class="section-title">Geography</div>
     <p class="muted" style="margin:-8px 0 16px;font-size:13.5px">Each topic unlocks at 7:00 AM India time. Finish today before tomorrow opens.</p>
     <div id="topic-msg"></div>
-    <div class="days" id="topics"></div>
+    <div class="topic-list" id="topics"></div>
+  </section>
+
+  <!-- ===== EMPTY FOLDER (Notes / Current Affairs) ===== -->
+  <section id="v-empty" class="hide">
+    <a class="back-link" id="back-empty" href="#">&larr; Home</a>
+    <div class="section-title" id="empty-title">Folder</div>
+    <div class="empty-state">
+      <span class="empty-ic"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v3H3zM3 12h18v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+      <h3>Nothing here yet</h3>
+      <p class="muted">This section will fill up as content is added.</p>
+    </div>
   </section>
 
 </main>
@@ -134,16 +145,21 @@
   }
 
   // View switching (single page, no reloads).
-  var VIEWS = ["v-home","v-lectures","v-geography"];
+  var VIEWS = ["v-home","v-lectures","v-geography","v-empty"];
   function showView(id){
     VIEWS.forEach(function(v){ document.getElementById(v).classList.toggle("hide", v!==id); });
     window.scrollTo(0,0);
   }
-  function on(id, view){ var el=document.getElementById(id); if(el) el.addEventListener("click", function(e){ e.preventDefault(); showView(view); }); }
-  on("nav-lectures","v-lectures");
-  on("nav-geography","v-geography");
-  on("back-home","v-home");
-  on("back-lectures","v-lectures");
+  var emptyBack = "v-home";
+  function showEmpty(title, backTo){ emptyBack = backTo || "v-home"; document.getElementById("empty-title").textContent = title; showView("v-empty"); }
+  function on(id, fn){ var el=document.getElementById(id); if(el) el.addEventListener("click", function(e){ e.preventDefault(); fn(); }); }
+  on("nav-lectures", function(){ showView("v-lectures"); });
+  on("nav-geography", function(){ showView("v-geography"); });
+  on("nav-notes", function(){ showEmpty("Notes", "v-home"); });
+  on("nav-currentaffairs", function(){ showEmpty("Current Affairs", "v-home"); });
+  on("back-home", function(){ showView("v-home"); });
+  on("back-lectures", function(){ showView("v-lectures"); });
+  on("back-empty", function(){ showView(emptyBack); });
 
   var LOCK_SVG='<svg class="lock-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
   var PLAY_SVG='<svg class="lock-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l14 8-14 8z"/></svg>';
@@ -164,15 +180,14 @@
       var name = (window.TOPIC_NAMES && window.TOPIC_NAMES[l.day]) || l.title;
       var watched = isWatched(product, l.day);
       var el = document.createElement(l.unlocked ? "a" : "div");
-      el.className = "day " + (l.unlocked ? "open" : "locked") + (watched ? " done" : "");
+      el.className = "topic-row " + (l.unlocked ? "open" : "locked") + (watched ? " done" : "");
       if (l.unlocked) el.href = "watch.html?day=" + l.day;
       var status = l.unlocked
         ? (watched ? CHECK_SVG + 'Completed' : PLAY_SVG + 'Open now')
         : LOCK_SVG + 'Unlocks ' + fmtUnlock(l.unlockAt);
       el.innerHTML =
-        '<span class="dnum">Topic ' + l.day + '</span>' +
-        '<h3>' + name + '</h3>' +
-        '<span class="status">' + status + '</span>';
+        '<span class="tr-main"><span class="tr-num">Topic ' + l.day + '</span><span class="tr-title">' + name + '</span></span>' +
+        '<span class="tr-status">' + status + '</span>';
       topics.appendChild(el);
     });
 

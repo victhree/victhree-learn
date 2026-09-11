@@ -86,6 +86,28 @@ input.field:focus,select.field:focus{outline:none;border-color:var(--gold);box-s
 .day.done{border-top-color:var(--green)}
 .day.done .status{color:var(--green)}
 
+/* ---- topic list (topics inside a subject) ---- */
+.topic-list{display:flex;flex-direction:column;gap:10px}
+.topic-row{display:flex;align-items:center;gap:16px;background:var(--white);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:12px;padding:14px 18px;text-decoration:none;color:var(--ink);box-shadow:var(--shadow);transition:transform .08s ease,box-shadow .15s ease}
+.topic-row.open:hover{transform:translateX(3px);box-shadow:0 8px 22px rgba(11,31,58,.14)}
+.topic-row .tr-main{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.topic-row .tr-num{font-size:12px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--gold)}
+.topic-row .tr-title{font-size:17px;font-weight:700;color:var(--navy)}
+.topic-row .tr-status{flex:none;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px;color:var(--green)}
+.topic-row .tr-status .lock-ic{width:15px;height:15px}
+.topic-row.locked{background:#f3f5f8;border-left-color:var(--line);opacity:.85;cursor:not-allowed}
+.topic-row.locked .tr-num,.topic-row.locked .tr-title,.topic-row.locked .tr-status{color:var(--muted)}
+.topic-row.done{border-left-color:var(--green)}
+.topic-row.done .tr-status{color:var(--green)}
+@media(max-width:560px){.topic-row{flex-wrap:wrap}.topic-row .tr-status{width:100%;justify-content:flex-start;margin-top:2px}}
+
+/* ---- empty folder state ---- */
+.empty-state{text-align:center;padding:50px 22px;background:var(--white);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.empty-ic{display:inline-block;width:54px;height:54px;color:#c3ccdb;margin-bottom:12px}
+.empty-ic svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.empty-state h3{color:var(--navy);margin:0 0 4px}
+.empty-state p{color:var(--muted);margin:0}
+
 /* ---- progress bar ---- */
 .progress-card{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px;margin:0 0 22px}
 .progress-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}

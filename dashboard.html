@@ -27,6 +27,11 @@
   <!-- ===== HOME ===== -->
   <section id="v-home">
     <div class="dash-head"><h1 id="hello">Welcome</h1></div>
+    <div class="progress-card" id="progressCard" hidden>
+      <div class="progress-top"><span class="progress-label">Course progress</span><span class="progress-pct" id="progPct">0%</span></div>
+      <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
+      <div class="progress-sub" id="progSub"></div>
+    </div>
     <div class="quote-tile">
       <p class="quote-text" id="quoteText">&nbsp;</p>
       <span class="quote-author" id="quoteAuthor"></span>
@@ -122,6 +127,8 @@
   var LOCK_SVG='<svg class="lock-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
   var PLAY_SVG='<svg class="lock-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l14 8-14 8z"/></svg>';
 
+  var CHECK_SVG='<svg class="lock-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>';
+
   (async function(){
     var meRes = await api("/api/me");
     if (meRes && meRes.data && meRes.data.name) document.getElementById("hello").textContent = "Welcome, " + meRes.data.name.split(" ")[0];
@@ -129,18 +136,33 @@
     var r = await api("/api/lessons");
     var topics = document.getElementById("topics");
     if (!r || !r.ok) { document.getElementById("topic-msg").innerHTML = '<div class="msg err">Could not load your topics. Please refresh.</div>'; return; }
+    var product = r.data.product;
     topics.innerHTML = "";
     r.data.lessons.forEach(function(l){
       var name = (window.TOPIC_NAMES && window.TOPIC_NAMES[l.day]) || l.title;
+      var watched = isWatched(product, l.day);
       var el = document.createElement(l.unlocked ? "a" : "div");
-      el.className = "day " + (l.unlocked ? "open" : "locked");
+      el.className = "day " + (l.unlocked ? "open" : "locked") + (watched ? " done" : "");
       if (l.unlocked) el.href = "watch.html?day=" + l.day;
+      var status = l.unlocked
+        ? (watched ? CHECK_SVG + 'Completed' : PLAY_SVG + 'Open now')
+        : LOCK_SVG + 'Unlocks ' + fmtUnlock(l.unlockAt);
       el.innerHTML =
         '<span class="dnum">Topic ' + l.day + '</span>' +
         '<h3>' + name + '</h3>' +
-        '<span class="status">' + (l.unlocked ? PLAY_SVG + 'Open now' : LOCK_SVG + 'Unlocks ' + fmtUnlock(l.unlockAt)) + '</span>';
+        '<span class="status">' + status + '</span>';
       topics.appendChild(el);
     });
+
+    // ----- progress bar -----
+    var days = r.data.lessons.map(function(l){ return l.day; });
+    var total = (window.COURSE_TOTALS && window.COURSE_TOTALS[product]) || days.length;
+    var done = countWatched(product, days);
+    var pct = total ? Math.round(done / total * 100) : 0;
+    document.getElementById("progPct").textContent = pct + "%";
+    document.getElementById("progFill").style.width = pct + "%";
+    document.getElementById("progSub").textContent = done + " of " + total + " topics completed";
+    document.getElementById("progressCard").hidden = false;
   })();
 
   // Deep link back from the watch page opens the topics view directly.

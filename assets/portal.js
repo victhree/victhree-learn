@@ -16,6 +16,18 @@ window.TOPIC_NAMES = {
   5: "Winds and Jet Streams"
 };
 
+// Total topics the progress bar counts toward, per product. The full course is
+// planned at 52 videos; the trial is out of its own topics.
+window.COURSE_TOTALS = { trial: 5, course: 52 };
+
+// ---- progress (kept in this browser; a video counts once watched past 50%) ----
+function getProgress(){ try { return JSON.parse(localStorage.getItem("vt_progress") || "{}"); } catch { return {}; } }
+function markWatched(product, day){
+  try { var p = getProgress(); p[product + "#" + day] = true; localStorage.setItem("vt_progress", JSON.stringify(p)); } catch {}
+}
+function isWatched(product, day){ return !!getProgress()[product + "#" + day]; }
+function countWatched(product, days){ var p = getProgress(); var n = 0; (days || []).forEach(function(d){ if (p[product + "#" + d]) n++; }); return n; }
+
 function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch { return ""; } }
 function setToken(t) { try { localStorage.setItem(TOKEN_KEY, t); } catch {} }
 function clearToken() { try { localStorage.removeItem(TOKEN_KEY); } catch {} }

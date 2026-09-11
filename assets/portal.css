@@ -78,6 +78,17 @@ input.field:focus,select.field:focus{outline:none;border-color:var(--gold);box-s
 .day.locked{border-top-color:var(--line);background:#f3f5f8;opacity:.8;cursor:not-allowed}
 .day.locked h3,.day.locked .status,.day.locked .dnum{color:var(--muted)}
 .day .lock-ic{width:15px;height:15px}
+.day.done{border-top-color:var(--green)}
+.day.done .status{color:var(--green)}
+
+/* ---- progress bar ---- */
+.progress-card{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px;margin:0 0 22px}
+.progress-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}
+.progress-label{font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
+.progress-pct{font-size:22px;font-weight:800;color:var(--navy)}
+.progress-track{height:12px;background:#eef1f6;border-radius:999px;overflow:hidden}
+.progress-fill{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,var(--gold),var(--gold-soft));transition:width .5s ease}
+.progress-sub{margin-top:9px;font-size:13px;color:var(--muted)}
 
 /* ---- watch ---- */
 .watch h1{font-size:22px;margin:0 0 14px}

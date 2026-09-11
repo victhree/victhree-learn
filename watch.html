@@ -9,6 +9,7 @@
 <link rel="apple-touch-icon" href="assets/shield-180.png">
 <meta name="theme-color" content="#0B1F3A">
 <link rel="stylesheet" href="assets/portal.css">
+<script src="https://cdn.jsdelivr.net/npm/player.js@0.1.0/dist/player.min.js"></script>
 </head>
 <body>
 
@@ -45,6 +46,7 @@
   (async function(){
     // Watermark the player with the student's email (a screen-recording deterrent).
     var meRes = await api("/api/me");
+    var product = (meRes && meRes.data && meRes.data.product) || "trial";
     if (meRes && meRes.data && meRes.data.email) document.getElementById("wm").textContent = meRes.data.email;
 
     if (!day) { fail("No lesson selected."); return; }
@@ -54,6 +56,7 @@
       document.getElementById("title").textContent = tname;
       document.getElementById("topicEyebrow").textContent = "Topic " + day;
       document.getElementById("frame").src = r.data.embedUrl;
+      setupProgress(document.getElementById("frame"), product, day);
       var actions = document.getElementById("actions");
       if (r.data.hasNotes) {
         var btn = document.createElement("button");
@@ -76,6 +79,20 @@
     document.getElementById("player").classList.add("hide");
     document.getElementById("msg").innerHTML = '<div class="msg err">' + text + '</div>' +
       '<p><a class="btn ghost" href="dashboard.html?subject=geography">Back to Geography</a></p>';
+  }
+
+  // Mark this topic complete once the student watches past the halfway point (or finishes).
+  function setupProgress(iframe, product, day){
+    if (typeof playerjs === "undefined" || isWatched(product, day)) return;
+    try {
+      var player = new playerjs.Player(iframe);
+      player.on("ready", function(){
+        player.on("timeupdate", function(t){
+          if (t && t.duration && (t.seconds / t.duration) >= 0.5) markWatched(product, day);
+        });
+        player.on("ended", function(){ markWatched(product, day); });
+      });
+    } catch (e) {}
   }
 </script>
 </body>

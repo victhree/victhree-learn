@@ -26,15 +26,11 @@
 
   <!-- ===== HOME ===== -->
   <section id="v-home">
-    <div class="dash-head"><h1 id="hello">Welcome</h1></div>
+    <div class="dash-head"><h1 class="greeting"><span id="typedText"></span><span class="caret" id="caret" aria-hidden="true">|</span></h1></div>
     <div class="progress-card" id="progressCard" hidden>
       <div class="progress-top"><span class="progress-label">Course progress</span><span class="progress-pct" id="progPct">0%</span></div>
       <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
       <div class="progress-sub" id="progSub"></div>
-    </div>
-    <div class="quote-tile">
-      <p class="quote-text" id="quoteText">&nbsp;</p>
-      <span class="quote-author" id="quoteAuthor"></span>
     </div>
     <div class="tiles">
       <a class="tile" id="nav-lectures" href="#">
@@ -52,6 +48,10 @@
         <span class="tile-title">Current Affairs</span>
         <span class="tile-lock">Coming soon</span>
       </div>
+    </div>
+    <div class="quote-tile">
+      <p class="quote-text" id="quoteText">&nbsp;</p>
+      <span class="quote-author" id="quoteAuthor"></span>
     </div>
   </section>
 
@@ -98,6 +98,7 @@
 <footer class="site-footer">VicThree Defence · Course</footer>
 
 <script src="assets/quotes.js"></script>
+<script src="assets/greetings.js"></script>
 <script src="assets/portal.js"></script>
 <script>
   if (!requireLogin()) { /* redirected */ }
@@ -111,6 +112,26 @@
     document.getElementById("quoteText").textContent = "“" + q.t + "”";
     document.getElementById("quoteAuthor").textContent = q.a ? "— " + q.a : "";
   })();
+
+  // Full welcome message, typed out: "Welcome, <name>." + a random greeting line.
+  function typeGreeting(name){
+    var gs = window.GREETINGS || [];
+    var greet = gs.length ? gs[Math.floor(Math.random()*gs.length)] : "Let's make today count.";
+    var line1 = name ? ("Welcome, " + name + ".") : "Welcome back.";
+    typeOut(line1 + "\n" + greet);
+  }
+  function typeOut(msg){
+    var el = document.getElementById("typedText"), caret = document.getElementById("caret");
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      el.textContent = msg; if (caret) caret.classList.add("done"); return;
+    }
+    var i = 0;
+    (function tick(){
+      el.textContent = msg.slice(0, i);
+      if (i < msg.length) { i++; setTimeout(tick, 42); }
+      else if (caret) { caret.classList.add("done"); }
+    })();
+  }
 
   // View switching (single page, no reloads).
   var VIEWS = ["v-home","v-lectures","v-geography"];
@@ -131,7 +152,8 @@
 
   (async function(){
     var meRes = await api("/api/me");
-    if (meRes && meRes.data && meRes.data.name) document.getElementById("hello").textContent = "Welcome, " + meRes.data.name.split(" ")[0];
+    var firstName = (meRes && meRes.data && meRes.data.name) ? meRes.data.name.split(" ")[0] : "";
+    typeGreeting(firstName);
 
     var r = await api("/api/lessons");
     var topics = document.getElementById("topics");

@@ -65,6 +65,11 @@ input.field:focus,select.field:focus{outline:none;border-color:var(--gold);box-s
 .dash-head{margin:6px 0 20px}
 .dash-head h1{font-size:clamp(24px,5vw,34px);letter-spacing:.5px}
 .dash-head .lede{color:var(--muted);margin:4px 0 0}
+.dash-head .greeting{white-space:pre-wrap;font-size:clamp(19px,4.3vw,28px);color:var(--navy);font-weight:800;line-height:1.35;letter-spacing:.3px;margin:6px 0 18px;min-height:2.5em}
+.caret{display:inline-block;color:var(--gold);font-weight:400;margin-left:1px;animation:blink 1s step-end infinite}
+.caret.done{animation:none;opacity:0}
+@keyframes blink{50%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.caret{animation:none;opacity:0}}
 .days{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
 .day{display:flex;flex-direction:column;gap:8px;justify-content:center;text-align:center;min-height:150px;
   background:var(--white);border:1px solid var(--line);border-top:4px solid var(--gold);border-radius:var(--radius);

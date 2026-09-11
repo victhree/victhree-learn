@@ -42,6 +42,8 @@
   document.getElementById("logout").addEventListener("click", logout);
 
   var day = parseInt(new URLSearchParams(location.search).get("day"), 10);
+  var NOTES_ICON = '<span class="tab-ic"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 16h4"/></svg></span>';
+  var TEST_ICON = '<span class="tab-ic"><svg viewBox="0 0 24 24"><path d="M9 4h6v2H9z"/><path d="M15 5h3v15a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5h3"/><path d="M9 13l2 2 4-4"/></svg></span>';
 
   (async function(){
     // Watermark the player with the student's email (a screen-recording deterrent).
@@ -58,15 +60,24 @@
       document.getElementById("frame").src = r.data.embedUrl;
       setupProgress(document.getElementById("frame"), product, day);
       var actions = document.getElementById("actions");
-      if (r.data.hasNotes) {
-        var btn = document.createElement("button");
-        btn.className = "btn primary"; btn.textContent = "Open today's notes (PDF)";
-        btn.addEventListener("click", function(){ openNotes(day); });
-        actions.appendChild(btn);
-      }
-      var back = document.createElement("a");
-      back.className = "btn ghost"; back.href = "dashboard.html?subject=geography"; back.textContent = "Back to Geography";
-      actions.appendChild(back);
+
+      // Notes tab — opens the topic's PDF when one exists.
+      var hasNotes = !!r.data.hasNotes;
+      var notesTab = document.createElement(hasNotes ? "button" : "span");
+      notesTab.className = "tab" + (hasNotes ? "" : " tab-disabled");
+      notesTab.innerHTML = NOTES_ICON + "Notes";
+      if (hasNotes) notesTab.addEventListener("click", function(){ openNotes(day); });
+      else notesTab.title = "Notes for this topic will be added soon";
+      actions.appendChild(notesTab);
+
+      // Take the test tab — opens this topic's mock test on the mock-test site.
+      var testUrl = (window.TOPIC_TESTS && window.TOPIC_TESTS[day]) || "";
+      var testTab = document.createElement(testUrl ? "a" : "span");
+      testTab.className = "tab primary" + (testUrl ? "" : " tab-disabled");
+      testTab.innerHTML = TEST_ICON + "Take the test";
+      if (testUrl) { testTab.href = testUrl; testTab.target = "_blank"; testTab.rel = "noopener"; }
+      else testTab.title = "The test for this topic will be added soon";
+      actions.appendChild(testTab);
     } else if (r && r.status === 403) {
       var when = (r.data && r.data.unlockAt) ? fmtUnlock(r.data.unlockAt) : "later";
       fail("This day hasn't unlocked yet. It opens at " + when + ".");

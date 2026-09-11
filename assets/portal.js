@@ -16,6 +16,17 @@ window.TOPIC_NAMES = {
   5: "Winds and Jet Streams"
 };
 
+// Mock-test URL for each topic's "Take the test" tab (opens the mock-test site
+// in a new tab). Paste the URL Anmol provides for each day; leave "" to keep
+// the tab disabled ("test coming soon") until a link is added.
+window.TOPIC_TESTS = {
+  1: "",
+  2: "",
+  3: "",
+  4: "",
+  5: ""
+};
+
 // Total topics the progress bar counts toward, per product. The full course is
 // planned at 52 videos; the trial is out of its own topics.
 window.COURSE_TOTALS = { trial: 5, course: 52 };

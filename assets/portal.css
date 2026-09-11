@@ -107,6 +107,9 @@ tbody tr:last-child td{border-bottom:none}
 .quote-tile::before{content:"";position:absolute;inset:0;background:rgba(14,20,10,.55)}
 .quote-text{position:relative;z-index:1;margin:0;color:#fff;font-family:"Cinzel",Georgia,serif;
   font-size:18px;font-weight:700;line-height:1.6;letter-spacing:.4px;text-shadow:0 1px 5px rgba(0,0,0,.7)}
+.quote-author{position:relative;z-index:1;display:block;margin-top:12px;color:var(--gold-soft);
+  font-family:"Cinzel",Georgia,serif;font-weight:700;font-size:13px;letter-spacing:1px}
+.quote-author:empty{margin-top:0}
 
 /* ---- section heading (Lectures / Geography) ---- */
 .section-title{font-size:16px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--gold);

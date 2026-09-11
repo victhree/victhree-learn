@@ -27,7 +27,10 @@
   <!-- ===== HOME ===== -->
   <section id="v-home">
     <div class="dash-head"><h1 id="hello">Welcome</h1></div>
-    <div class="quote-tile"><p class="quote-text" id="quoteText">&nbsp;</p></div>
+    <div class="quote-tile">
+      <p class="quote-text" id="quoteText">&nbsp;</p>
+      <span class="quote-author" id="quoteAuthor"></span>
+    </div>
     <div class="tiles">
       <a class="tile" id="nav-lectures" href="#">
         <span class="tile-ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/></svg></span>
@@ -98,7 +101,10 @@
   // Rotating motivational line.
   (function(){
     var qs = window.QUOTES || [];
-    if (qs.length) document.getElementById("quoteText").textContent = qs[Math.floor(Math.random()*qs.length)];
+    if (!qs.length) return;
+    var q = qs[Math.floor(Math.random()*qs.length)];
+    document.getElementById("quoteText").textContent = "“" + q.t + "”";
+    document.getElementById("quoteAuthor").textContent = q.a ? "— " + q.a : "";
   })();
 
   // View switching (single page, no reloads).

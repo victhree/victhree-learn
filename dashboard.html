@@ -150,16 +150,28 @@
     VIEWS.forEach(function(v){ document.getElementById(v).classList.toggle("hide", v!==id); });
     window.scrollTo(0,0);
   }
-  var emptyBack = "v-home";
-  function showEmpty(title, backTo){ emptyBack = backTo || "v-home"; document.getElementById("empty-title").textContent = title; showView("v-empty"); }
+
+  // Drive folder navigation through the URL hash so the browser's back/forward
+  // buttons (and the in-page back links) work normally.
+  var ROUTES = { "":"v-home", "home":"v-home", "lectures":"v-lectures", "geography":"v-geography", "notes":"v-empty", "current-affairs":"v-empty" };
+  var EMPTY_TITLES = { "notes":"Notes", "current-affairs":"Current Affairs" };
+  function renderRoute(){
+    var h = (location.hash || "").replace(/^#/, "");
+    var view = ROUTES[h] || "v-home";
+    if (view === "v-empty") document.getElementById("empty-title").textContent = EMPTY_TITLES[h] || "Folder";
+    showView(view);
+  }
+  window.addEventListener("hashchange", renderRoute);
+
+  function go(hash){ if (location.hash === "#" + hash) renderRoute(); else location.hash = hash; }
   function on(id, fn){ var el=document.getElementById(id); if(el) el.addEventListener("click", function(e){ e.preventDefault(); fn(); }); }
-  on("nav-lectures", function(){ showView("v-lectures"); });
-  on("nav-geography", function(){ showView("v-geography"); });
-  on("nav-notes", function(){ showEmpty("Notes", "v-home"); });
-  on("nav-currentaffairs", function(){ showEmpty("Current Affairs", "v-home"); });
-  on("back-home", function(){ showView("v-home"); });
-  on("back-lectures", function(){ showView("v-lectures"); });
-  on("back-empty", function(){ showView(emptyBack); });
+  on("nav-lectures", function(){ go("lectures"); });
+  on("nav-geography", function(){ go("geography"); });
+  on("nav-notes", function(){ go("notes"); });
+  on("nav-currentaffairs", function(){ go("current-affairs"); });
+  on("back-home", function(){ history.back(); });
+  on("back-lectures", function(){ history.back(); });
+  on("back-empty", function(){ history.back(); });
 
   var LOCK_SVG='<svg class="lock-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
   var PLAY_SVG='<svg class="lock-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l14 8-14 8z"/></svg>';
@@ -202,8 +214,7 @@
     document.getElementById("progressCard").hidden = false;
   })();
 
-  // Deep link back from the watch page opens the topics view directly.
-  if (new URLSearchParams(location.search).get("subject") === "geography") showView("v-geography");
+  renderRoute();  // show the view for the current URL hash on load (e.g. #geography from the watch page)
 </script>
 </body>
 </html>

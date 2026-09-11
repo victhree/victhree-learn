@@ -21,7 +21,7 @@
 </header>
 
 <main class="wrap watch">
-  <a class="back-link" href="dashboard.html?subject=geography">&larr; Geography</a>
+  <a class="back-link" href="dashboard.html#geography">&larr; Geography</a>
   <div id="topicEyebrow" style="font-size:12.5px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:4px"></div>
   <h1 id="title">Lesson</h1>
   <div id="msg"></div>
@@ -89,7 +89,7 @@
   function fail(text){
     document.getElementById("player").classList.add("hide");
     document.getElementById("msg").innerHTML = '<div class="msg err">' + text + '</div>' +
-      '<p><a class="btn ghost" href="dashboard.html?subject=geography">Back to Geography</a></p>';
+      '<p><a class="btn ghost" href="dashboard.html#geography">Back to Geography</a></p>';
   }
 
   // Mark this topic complete once the student watches past the halfway point (or finishes).

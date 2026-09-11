@@ -219,7 +219,7 @@ async function notes(env, cors, student, url) {
   // Pull the PDF from Bunny Storage server-side; the student never sees the source.
   const srcUrl = `https://${env.BUNNY_STORAGE_HOST}/${env.BUNNY_STORAGE_ZONE}/${lesson.notes}`;
   const res = await fetch(srcUrl, { headers: { AccessKey: env.BUNNY_STORAGE_KEY } });
-  if (!res.ok) return json({ error: "notes_unavailable" }, 502, cors);
+  if (!res.ok) return json({ error: "notes_unavailable", upstream: res.status }, 502, cors);
 
   const headers = new Headers(cors);
   headers.set("Content-Type", "application/pdf");
@@ -234,7 +234,7 @@ async function notes(env, cors, student, url) {
 async function caList(env, cors, student) {
   const listUrl = `https://${env.BUNNY_STORAGE_HOST}/${env.BUNNY_STORAGE_ZONE}/current-affairs/`;
   const res = await fetch(listUrl, { headers: { AccessKey: env.BUNNY_STORAGE_KEY } });
-  if (!res.ok) return json({ issues: [] }, 200, cors);
+  if (!res.ok) return json({ issues: [], listStatus: res.status }, 200, cors);
   let items = [];
   try { items = await res.json(); } catch { items = []; }
   const issues = (items || [])

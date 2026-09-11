@@ -65,7 +65,11 @@ async function api(path, opts) {
 async function openNotes(day) {
   const token = getToken();
   const res = await fetch(API + "/api/notes?day=" + day, { headers: { "Authorization": "Bearer " + token } });
-  if (!res.ok) { alert("Notes are not available yet."); return; }
+  if (!res.ok) {
+    let d = {}; try { d = await res.json(); } catch {}
+    alert("Notes not available. (worker " + res.status + (d.upstream ? ", storage " + d.upstream : "") + ")");
+    return;
+  }
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   window.open(url, "_blank");

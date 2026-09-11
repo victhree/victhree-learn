@@ -233,7 +233,10 @@
     if (!r || !r.ok) { caLoaded = false; msg.innerHTML = '<div class="msg err">Could not load current affairs. Please try again.</div>'; return; }
     var issues = (r.data && r.data.issues) || [];
     if (!issues.length) {
-      msg.innerHTML = '<div class="empty-state"><span class="empty-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5h13v14H4z"/><path d="M17 8h3v9a2 2 0 0 1-2 2h-1z"/><path d="M7 8h7M7 11h7M7 14h5"/></svg></span><h3>No issues yet</h3><p class="muted">Monthly magazines will appear here as they are added.</p></div>';
+      var ls = r.data && r.data.listStatus;
+      msg.innerHTML = ls
+        ? '<div class="msg err">Current affairs could not be listed (storage ' + ls + '). Check the storage key and the current-affairs folder.</div>'
+        : '<div class="empty-state"><span class="empty-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5h13v14H4z"/><path d="M17 8h3v9a2 2 0 0 1-2 2h-1z"/><path d="M7 8h7M7 11h7M7 14h5"/></svg></span><h3>No issues yet</h3><p class="muted">Monthly magazines will appear here as they are added.</p></div>';
       return;
     }
     list.innerHTML = "";

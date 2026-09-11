@@ -368,7 +368,9 @@ async function sendCodeEmail(env, email, code, name) {
 /* ----- tiny crypto + http utilities ----- */
 
 function corsHeaders(env, origin) {
-  const allowed = env.ALLOWED_ORIGIN || origin || "*";
+  // ALLOWED_ORIGIN may be a comma-separated list; echo the request's origin if it's allowed.
+  const list = String(env.ALLOWED_ORIGIN || "").split(",").map(s => s.trim()).filter(Boolean);
+  const allowed = list.length ? (list.indexOf(origin) !== -1 ? origin : list[0]) : (origin || "*");
   return {
     "Access-Control-Allow-Origin": allowed,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",

@@ -1,5 +1,5 @@
-/* Second line of the dashboard welcome message — one at random each login,
-   typed out after "Welcome, <name>.". Edit / reorder / remove freely. */
+/* Second line of the dashboard welcome message, one shown at random each login,
+   typed out after "Welcome, <name>.". Edit, reorder or remove freely. */
 window.GREETINGS = [
   "Ready to aim for the target today?",
   "Let's get one step closer to the uniform.",

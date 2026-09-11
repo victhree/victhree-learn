@@ -135,28 +135,27 @@ input.field:focus,select.field:focus{outline:none;border-color:var(--gold);box-s
 /* ---- welcome row: greeting on the left, streak chip on the right ---- */
 .home-top{display:flex;align-items:stretch;gap:16px;margin:6px 0 16px}
 .home-top .dash-head{flex:1;margin:0;display:flex;flex-direction:column;justify-content:center}
-.streak-chip{flex:0 0 auto;min-width:118px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
-  background:var(--white);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 20px;text-align:center}
-.streak-chip .sc-k{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted)}
-.streak-chip .sc-num{font-size:clamp(30px,7vw,40px);font-weight:800;color:var(--navy);line-height:1}
-.streak-chip .sc-sub{font-size:12px;color:var(--muted)}
+.streak-chip{flex:0 0 auto;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:11px;white-space:nowrap;
+  background:var(--white);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 24px}
+.streak-chip .sc-flame{font-size:20px;line-height:1}
+.streak-chip .sc-label{font-size:13px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
+.streak-chip .sc-num{font-size:26px;font-weight:800;color:var(--navy);line-height:1}
+.streak-chip .sc-sub{font-size:13px;color:var(--muted);font-weight:600}
 @media(max-width:560px){
   .home-top{flex-direction:column;gap:12px}
-  .streak-chip{align-self:stretch;flex-direction:row;justify-content:center;gap:12px;padding:10px 16px}
-  .streak-chip .sc-num{font-size:28px}
+  .streak-chip{align-self:stretch}
 }
 
-/* ---- exam countdown band (LED "bomb timer", like the vocab site) ---- */
-.exam-band{background:var(--navy);border-radius:var(--radius);border:1px solid rgba(255,255,255,.06);box-shadow:var(--shadow);padding:26px 20px;margin:26px 0 8px}
-.exam-band-title{text-align:center;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--gold-soft);margin:0 0 20px}
-.exam-timers{display:flex;flex-wrap:wrap;justify-content:center;gap:40px}
+/* ---- exam countdown (LED "bomb timer" like the vocab site, on the page, no box) ---- */
+.exam-band{margin:34px 0 8px;text-align:center}
+.exam-timers{display:flex;flex-wrap:wrap;justify-content:center;gap:44px}
 .exam-timer{text-align:center}
 .exam-timer .et-name{font-size:11px;color:var(--gold);letter-spacing:1.5px;text-transform:uppercase;font-weight:700}
-.exam-timer .et-date{font-size:10.5px;color:var(--gold-soft);letter-spacing:1px;text-transform:uppercase;margin-top:3px;opacity:.75}
+.exam-timer .et-date{font-size:10.5px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:3px}
 .exam-timer .et-count{margin-top:12px;line-height:1}
 @font-face{font-family:'DSEG7';src:url('DSEG7Classic-Bold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap}
 .et-count .n{display:block;text-align:center;text-indent:4px;font-family:'DSEG7',monospace;font-size:40px;line-height:1;letter-spacing:4px;color:#ff2f2f;text-shadow:0 0 8px rgba(255,45,45,.9),0 0 2px rgba(255,95,95,.95);animation:led-pulse 2s ease-in-out infinite}
-.et-count .et-unit{display:block;text-align:center;margin-top:9px;font-size:11px;color:var(--gold-soft);text-transform:uppercase;letter-spacing:1px;opacity:.8}
+.et-count .et-unit{display:block;text-align:center;margin-top:9px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
 @keyframes led-pulse{0%,100%{opacity:1;text-shadow:0 0 9px rgba(255,45,45,.95),0 0 3px rgba(255,95,95,1)}50%{opacity:.38;text-shadow:0 0 3px rgba(255,45,45,.35)}}
 @media(prefers-reduced-motion:reduce){.et-count .n{animation:none}}
 

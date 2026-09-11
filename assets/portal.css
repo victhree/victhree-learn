@@ -153,7 +153,7 @@ tbody tr:last-child td{border-bottom:none}
 
 /* ---- dashboard hub: quote tile ---- */
 .quote-tile{position:relative;overflow:hidden;text-align:center;border-radius:var(--radius);border:2px solid var(--gold);
-  margin:38px 0 16px;padding:28px 22px;background:#3d3c24 url("camo.png") center/cover no-repeat}
+  margin:130px 0 16px;padding:28px 22px;background:#3d3c24 url("camo.png") center/cover no-repeat}
 .quote-tile::before{content:"";position:absolute;inset:0;background:rgba(14,20,10,.55)}
 .quote-text{position:relative;z-index:1;margin:0;color:#fff;font-family:"Cinzel",Georgia,serif;
   font-size:18px;font-weight:700;line-height:1.6;letter-spacing:.4px;text-shadow:0 1px 5px rgba(0,0,0,.7)}

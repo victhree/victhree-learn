@@ -20,11 +20,11 @@ window.TOPIC_NAMES = {
 // in a new tab). Paste the URL Anmol provides for each day; leave "" to keep
 // the tab disabled ("test coming soon") until a link is added.
 window.TOPIC_TESTS = {
-  1: "",
-  2: "",
-  3: "",
-  4: "",
-  5: ""
+  1: "https://victhree.github.io/victhree-mocks/test.html?test=geo-sec-01",
+  2: "https://victhree.github.io/victhree-mocks/test.html?test=geo-sec-02",
+  3: "https://victhree.github.io/victhree-mocks/test.html?test=geo-sec-03",
+  4: "https://victhree.github.io/victhree-mocks/test.html?test=geo-sec-04",
+  5: "https://victhree.github.io/victhree-mocks/test.html?test=geo-sec-05"
 };
 
 // Total topics the progress bar counts toward, per product. The full course is

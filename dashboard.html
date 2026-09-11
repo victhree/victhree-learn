@@ -8,6 +8,9 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/shield-32.png">
 <link rel="apple-touch-icon" href="assets/shield-180.png">
 <meta name="theme-color" content="#0B1F3A">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&display=swap">
 <link rel="stylesheet" href="assets/portal.css">
 </head>
 <body>
@@ -19,45 +22,123 @@
   </div>
 </header>
 
-<main class="wrap">
-  <div class="dash-head">
-    <h1 id="hello">Your course</h1>
-    <p class="lede">Each day unlocks at 7:00 AM India time. Finish today before tomorrow opens.</p>
-  </div>
-  <div id="msg"></div>
-  <section class="days" id="days" aria-label="Course days"></section>
+<main class="wrap" id="app">
+
+  <!-- ===== HOME ===== -->
+  <section id="v-home">
+    <div class="dash-head"><h1 id="hello">Welcome</h1></div>
+    <div class="quote-tile"><p class="quote-text" id="quoteText">&nbsp;</p></div>
+    <div class="tiles">
+      <a class="tile" id="nav-lectures" href="#">
+        <span class="tile-ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/></svg></span>
+        <span class="tile-title">Lectures</span>
+        <span class="tile-sub">Watch your daily topics</span>
+      </a>
+      <div class="tile locked">
+        <span class="tile-ic"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 16h4"/></svg></span>
+        <span class="tile-title">Notes</span>
+        <span class="tile-lock">Coming soon</span>
+      </div>
+      <div class="tile locked">
+        <span class="tile-ic"><svg viewBox="0 0 24 24"><path d="M4 5h13v14H4z"/><path d="M17 8h3v9a2 2 0 0 1-2 2h-1z"/><path d="M7 8h7M7 11h7M7 14h5"/></svg></span>
+        <span class="tile-title">Current Affairs</span>
+        <span class="tile-lock">Coming soon</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== LECTURES / SUBJECTS ===== -->
+  <section id="v-lectures" class="hide">
+    <a class="back-link" id="back-home" href="#">&larr; Home</a>
+    <div class="section-title">Lectures</div>
+    <div class="tiles">
+      <a class="tile" id="nav-geography" href="#">
+        <span class="tile-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg></span>
+        <span class="tile-title">Geography</span>
+        <span class="tile-sub">Open</span>
+      </a>
+      <div class="tile locked">
+        <span class="tile-ic"><svg viewBox="0 0 24 24"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg></span>
+        <span class="tile-title">History</span><span class="tile-lock">Coming soon</span>
+      </div>
+      <div class="tile locked">
+        <span class="tile-ic"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg></span>
+        <span class="tile-title">Economy</span><span class="tile-lock">Coming soon</span>
+      </div>
+      <div class="tile locked">
+        <span class="tile-ic"><svg viewBox="0 0 24 24"><path d="M4 21h16M6 21V9l6-4 6 4v12M10 21v-6h4v6"/></svg></span>
+        <span class="tile-title">Politics</span><span class="tile-lock">Coming soon</span>
+      </div>
+      <div class="tile locked">
+        <span class="tile-ic"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 8a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-8V3"/></svg></span>
+        <span class="tile-title">Science</span><span class="tile-lock">Coming soon</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== GEOGRAPHY / TOPICS ===== -->
+  <section id="v-geography" class="hide">
+    <a class="back-link" id="back-lectures" href="#">&larr; Lectures</a>
+    <div class="section-title">Geography</div>
+    <p class="muted" style="margin:-8px 0 16px;font-size:13.5px">Each topic unlocks at 7:00 AM India time. Finish today before tomorrow opens.</p>
+    <div id="topic-msg"></div>
+    <div class="days" id="topics"></div>
+  </section>
+
 </main>
 
 <footer class="site-footer">VicThree Defence · Course</footer>
 
+<script src="assets/quotes.js"></script>
 <script src="assets/portal.js"></script>
 <script>
   if (!requireLogin()) { /* redirected */ }
   document.getElementById("logout").addEventListener("click", logout);
 
-  var LOCK_SVG = '<svg class="lock-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
-  var PLAY_SVG = '<svg class="lock-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l14 8-14 8z"/></svg>';
+  // Rotating motivational line.
+  (function(){
+    var qs = window.QUOTES || [];
+    if (qs.length) document.getElementById("quoteText").textContent = qs[Math.floor(Math.random()*qs.length)];
+  })();
+
+  // View switching (single page, no reloads).
+  var VIEWS = ["v-home","v-lectures","v-geography"];
+  function showView(id){
+    VIEWS.forEach(function(v){ document.getElementById(v).classList.toggle("hide", v!==id); });
+    window.scrollTo(0,0);
+  }
+  function on(id, view){ var el=document.getElementById(id); if(el) el.addEventListener("click", function(e){ e.preventDefault(); showView(view); }); }
+  on("nav-lectures","v-lectures");
+  on("nav-geography","v-geography");
+  on("back-home","v-home");
+  on("back-lectures","v-lectures");
+
+  var LOCK_SVG='<svg class="lock-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+  var PLAY_SVG='<svg class="lock-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l14 8-14 8z"/></svg>';
 
   (async function(){
     var meRes = await api("/api/me");
-    if (meRes && meRes.data && meRes.data.name) {
-      document.getElementById("hello").textContent = "Welcome, " + meRes.data.name.split(" ")[0];
-    }
+    if (meRes && meRes.data && meRes.data.name) document.getElementById("hello").textContent = "Welcome, " + meRes.data.name.split(" ")[0];
+
     var r = await api("/api/lessons");
-    if (!r || !r.ok) { document.getElementById("msg").innerHTML = '<div class="msg err">Could not load your course. Please try again.</div>'; return; }
-    var days = document.getElementById("days");
-    days.innerHTML = "";
+    var topics = document.getElementById("topics");
+    if (!r || !r.ok) { document.getElementById("topic-msg").innerHTML = '<div class="msg err">Could not load your topics. Please refresh.</div>'; return; }
+    topics.innerHTML = "";
     r.data.lessons.forEach(function(l){
+      var name = (window.TOPIC_NAMES && window.TOPIC_NAMES[l.day]) || l.title;
       var el = document.createElement(l.unlocked ? "a" : "div");
       el.className = "day " + (l.unlocked ? "open" : "locked");
       if (l.unlocked) el.href = "watch.html?day=" + l.day;
       el.innerHTML =
-        '<span class="dnum">Day ' + l.day + '</span>' +
-        '<h3>' + l.title + '</h3>' +
+        '<span class="dnum">Topic ' + l.day + '</span>' +
+        '<h3>' + name + '</h3>' +
         '<span class="status">' + (l.unlocked ? PLAY_SVG + 'Open now' : LOCK_SVG + 'Unlocks ' + fmtUnlock(l.unlockAt)) + '</span>';
-      days.appendChild(el);
+      topics.appendChild(el);
     });
   })();
+
+  // Deep link back from the watch page opens the topics view directly.
+  if (new URLSearchParams(location.search).get("subject") === "geography") showView("v-geography");
 </script>
 </body>
 </html>

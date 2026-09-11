@@ -37,11 +37,11 @@ const LESSONS = {
   // Storage (e.g. trial/day1.pdf), set its notes back to that path and the
   // "Open today's notes" button reappears for that day. Add days 6-11 here too.
   trial: [
-    { day: 1, title: "Geography — Day 1", video: "cdcea11d-9803-433a-acc6-79ecacd67119", notes: "" },
-    { day: 2, title: "Geography — Day 2", video: "22950dfc-221a-4d0c-966b-af81b0ac7e90", notes: "" },
-    { day: 3, title: "Geography — Day 3", video: "04e32b4a-7ad2-40c1-8981-db364c32d51d", notes: "" },
-    { day: 4, title: "Geography — Day 4", video: "738bc535-c548-4d5d-b6e5-8e909bea67f4", notes: "" },
-    { day: 5, title: "Geography — Day 5", video: "48d597dc-2d0b-42fc-8e17-5bbdd67101fb", notes: "" }
+    { day: 1, title: "The Universe and Earth's Interior", video: "cdcea11d-9803-433a-acc6-79ecacd67119", notes: "" },
+    { day: 2, title: "Volcanism and Earthquakes",        video: "22950dfc-221a-4d0c-966b-af81b0ac7e90", notes: "" },
+    { day: 3, title: "Rocks and Weathering",             video: "04e32b4a-7ad2-40c1-8981-db364c32d51d", notes: "" },
+    { day: 4, title: "Atmosphere and Rainfall",          video: "738bc535-c548-4d5d-b6e5-8e909bea67f4", notes: "" },
+    { day: 5, title: "Winds and Jet Streams",            video: "48d597dc-2d0b-42fc-8e17-5bbdd67101fb", notes: "" }
   ],
   // ---- The full 90-day course (product = "course") — Phase 2, fill later ----
   course: [

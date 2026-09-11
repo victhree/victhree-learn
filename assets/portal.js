@@ -7,6 +7,15 @@ const API = "https://victhree-portal.anmolxsharma.workers.dev";
 
 const TOKEN_KEY = "vt_portal_token";
 
+// Display names for each day's topic (Geography trial). Edit / extend here.
+window.TOPIC_NAMES = {
+  1: "The Universe and Earth's Interior",
+  2: "Volcanism and Earthquakes",
+  3: "Rocks and Weathering",
+  4: "Atmosphere and Rainfall",
+  5: "Winds and Jet Streams"
+};
+
 function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch { return ""; } }
 function setToken(t) { try { localStorage.setItem(TOKEN_KEY, t); } catch {} }
 function clearToken() { try { localStorage.removeItem(TOKEN_KEY); } catch {} }

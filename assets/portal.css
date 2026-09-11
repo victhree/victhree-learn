@@ -101,5 +101,35 @@ tbody tr:last-child td{border-bottom:none}
 .pill.trial{background:rgba(201,162,75,.16);color:#8a6d22}
 .pill.course{background:var(--green-bg);color:var(--green)}
 
+/* ---- dashboard hub: quote tile ---- */
+.quote-tile{position:relative;overflow:hidden;text-align:center;border-radius:var(--radius);border:2px solid var(--gold);
+  margin:6px 0 24px;padding:28px 22px;background:#3d3c24 url("camo.png") center/cover no-repeat}
+.quote-tile::before{content:"";position:absolute;inset:0;background:rgba(14,20,10,.55)}
+.quote-text{position:relative;z-index:1;margin:0;color:#fff;font-family:"Cinzel",Georgia,serif;
+  font-size:18px;font-weight:700;line-height:1.6;letter-spacing:.4px;text-shadow:0 1px 5px rgba(0,0,0,.7)}
+
+/* ---- section heading (Lectures / Geography) ---- */
+.section-title{font-size:16px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--gold);
+  margin:0 0 16px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+
+/* ---- category / subject tiles ---- */
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:8px}
+@media(max-width:700px){.tiles{grid-template-columns:1fr 1fr}}
+@media(max-width:460px){.tiles{grid-template-columns:1fr}}
+.tile{display:flex;flex-direction:column;gap:9px;justify-content:center;align-items:center;text-align:center;min-height:160px;
+  background:var(--navy);color:#fff;border-radius:var(--radius);padding:26px 20px;text-decoration:none;
+  box-shadow:0 2px 12px rgba(11,31,58,.18);transition:transform .12s ease,box-shadow .18s ease,filter .18s ease;cursor:pointer}
+.tile:hover{transform:translateY(-3px);filter:brightness(1.06);box-shadow:0 0 0 2px rgba(201,162,75,.55),0 6px 20px rgba(11,31,58,.22)}
+.tile .tile-ic{width:42px;height:42px;color:var(--gold)}
+.tile .tile-ic svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tile .tile-title{font-size:20px;font-weight:800;letter-spacing:.3px;color:#fff}
+.tile .tile-sub{font-size:13px;color:var(--gold-soft)}
+.tile .tile-lock{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:rgba(255,255,255,.7)}
+.tile.locked{background:#eef1f6;color:var(--muted);cursor:not-allowed;box-shadow:none}
+.tile.locked:hover{transform:none;filter:none;box-shadow:none}
+.tile.locked .tile-ic{color:#a9b4c6}
+.tile.locked .tile-title{color:var(--navy)}
+.tile.locked .tile-lock{color:var(--muted)}
+
 /* ---- footer ---- */
 .site-footer{text-align:center;color:var(--muted);font-size:12.5px;padding:18px}

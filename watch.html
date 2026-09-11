@@ -20,7 +20,8 @@
 </header>
 
 <main class="wrap watch">
-  <a class="back-link" href="dashboard.html">&larr; All days</a>
+  <a class="back-link" href="dashboard.html?subject=geography">&larr; Geography</a>
+  <div id="topicEyebrow" style="font-size:12.5px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:4px"></div>
   <h1 id="title">Lesson</h1>
   <div id="msg"></div>
 
@@ -49,7 +50,9 @@
     if (!day) { fail("No lesson selected."); return; }
     var r = await api("/api/video?day=" + day);
     if (r && r.ok && r.data && r.data.embedUrl) {
-      document.getElementById("title").textContent = r.data.title || ("Day " + day);
+      var tname = (window.TOPIC_NAMES && window.TOPIC_NAMES[day]) || r.data.title || ("Topic " + day);
+      document.getElementById("title").textContent = tname;
+      document.getElementById("topicEyebrow").textContent = "Topic " + day;
       document.getElementById("frame").src = r.data.embedUrl;
       var actions = document.getElementById("actions");
       if (r.data.hasNotes) {
@@ -59,7 +62,7 @@
         actions.appendChild(btn);
       }
       var back = document.createElement("a");
-      back.className = "btn ghost"; back.href = "dashboard.html"; back.textContent = "Back to all days";
+      back.className = "btn ghost"; back.href = "dashboard.html?subject=geography"; back.textContent = "Back to Geography";
       actions.appendChild(back);
     } else if (r && r.status === 403) {
       var when = (r.data && r.data.unlockAt) ? fmtUnlock(r.data.unlockAt) : "later";
@@ -72,7 +75,7 @@
   function fail(text){
     document.getElementById("player").classList.add("hide");
     document.getElementById("msg").innerHTML = '<div class="msg err">' + text + '</div>' +
-      '<p><a class="btn ghost" href="dashboard.html">Back to all days</a></p>';
+      '<p><a class="btn ghost" href="dashboard.html?subject=geography">Back to Geography</a></p>';
   }
 </script>
 </body>

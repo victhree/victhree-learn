@@ -177,6 +177,7 @@
   var PLAY_SVG='<svg class="lock-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l14 8-14 8z"/></svg>';
 
   var CHECK_SVG='<svg class="lock-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>';
+  var NOTE_SVG='<svg class="lock-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/></svg>';
 
   (async function(){
     var meRes = await api("/api/me");
@@ -191,12 +192,15 @@
     r.data.lessons.forEach(function(l){
       var name = (window.TOPIC_NAMES && window.TOPIC_NAMES[l.day]) || l.title;
       var watched = isWatched(product, l.day);
-      var el = document.createElement(l.unlocked ? "a" : "div");
-      el.className = "topic-row " + (l.unlocked ? "open" : "locked") + (watched ? " done" : "");
-      if (l.unlocked) el.href = "watch.html?day=" + l.day;
-      var status = l.unlocked
-        ? (watched ? CHECK_SVG + 'Completed' : PLAY_SVG + 'Open now')
-        : LOCK_SVG + 'Unlocks ' + fmtUnlock(l.unlockAt);
+      var notesOnly = l.available && !l.videoUnlocked;
+      var el = document.createElement(l.available ? "a" : "div");
+      el.className = "topic-row " + (l.available ? "open" : "locked") + (watched ? " done" : "") + (notesOnly ? " notes-only" : "");
+      if (l.available) el.href = "watch.html?day=" + l.day;
+      var status;
+      if (!l.available) status = LOCK_SVG + 'Unlocks ' + fmtUnlock(l.availableAt);
+      else if (watched) status = CHECK_SVG + 'Completed';
+      else if (l.videoUnlocked) status = PLAY_SVG + 'Open now';
+      else status = NOTE_SVG + 'Notes ready';
       el.innerHTML =
         '<span class="tr-main"><span class="tr-num">Topic ' + l.day + '</span><span class="tr-title">' + name + '</span></span>' +
         '<span class="tr-status">' + status + '</span>';

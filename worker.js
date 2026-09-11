@@ -56,6 +56,7 @@ const DAY_MS = 86400000;
 const CODE_TTL_MS = 10 * 60 * 1000;      // login code valid 10 minutes
 const SESSION_TTL_MS = 30 * 24 * 3600 * 1000; // login lasts 30 days
 const VIDEO_TOKEN_TTL_S = 300;           // signed video URL valid 5 minutes
+const NOTES_LEAD_MS = 13 * 3600 * 1000;  // notes open 6 PM the evening before the 7 AM video (13 h earlier)
 
 /* ============================== ROUTER ==================================== */
 
@@ -164,8 +165,16 @@ async function lessons(env, cors, student) {
   const list = LESSONS[student.product] || [];
   const now = Date.now();
   const out = list.map(l => {
-    const unlockAt = unlockTime(student.start_date, l.day);
-    return { day: l.day, title: l.title, unlocked: now >= unlockAt, unlockAt };
+    const videoUnlockAt = unlockTime(student.start_date, l.day);
+    const hasNotes = !!l.notes;
+    const notesUnlockAt = hasNotes ? (videoUnlockAt - NOTES_LEAD_MS) : null;
+    const availableAt = hasNotes ? notesUnlockAt : videoUnlockAt; // when the topic first opens
+    return {
+      day: l.day, title: l.title, hasNotes,
+      videoUnlockAt, videoUnlocked: now >= videoUnlockAt,
+      notesUnlockAt, notesUnlocked: hasNotes && now >= notesUnlockAt,
+      availableAt, available: now >= availableAt
+    };
   });
   return json({ product: student.product, startDate: student.start_date, lessons: out }, 200, cors);
 }
@@ -175,16 +184,25 @@ async function video(env, cors, student, url) {
   const lesson = (LESSONS[student.product] || []).find(l => l.day === day);
   if (!lesson) return json({ error: "no_such_day" }, 404, cors);
 
-  const unlockAt = unlockTime(student.start_date, lesson.day);
-  if (Date.now() < unlockAt) return json({ error: "locked", unlockAt }, 403, cors);
+  const videoUnlockAt = unlockTime(student.start_date, lesson.day);
+  const hasNotes = !!lesson.notes;
+  const notesUnlockAt = hasNotes ? (videoUnlockAt - NOTES_LEAD_MS) : null;
+  const availableAt = hasNotes ? notesUnlockAt : videoUnlockAt;
+  // Fully locked until the topic first opens (its notes time, or its video time if no notes).
+  if (Date.now() < availableAt) return json({ error: "locked", unlockAt: availableAt }, 403, cors);
 
-  // Bunny "Embed View Token Authentication":
-  //   token = SHA256_hex( embedKey + videoId + expires )
-  const expires = Math.floor(Date.now() / 1000) + VIDEO_TOKEN_TTL_S;
-  const token = await sha256Hex(env.BUNNY_EMBED_KEY + lesson.video + expires);
-  const embedUrl = `https://iframe.mediadelivery.net/embed/${env.BUNNY_LIBRARY_ID}/${lesson.video}` +
-                   `?token=${token}&expires=${expires}&autoplay=false&preload=false`;
-  return json({ embedUrl, title: lesson.title, hasNotes: !!lesson.notes }, 200, cors);
+  const videoUnlocked = Date.now() >= videoUnlockAt;
+  const notesUnlocked = hasNotes && Date.now() >= notesUnlockAt;
+
+  // The signed Bunny embed is only issued once the 7 AM video unlock has passed.
+  let embedUrl = null;
+  if (videoUnlocked) {
+    const expires = Math.floor(Date.now() / 1000) + VIDEO_TOKEN_TTL_S;
+    const token = await sha256Hex(env.BUNNY_EMBED_KEY + lesson.video + expires);
+    embedUrl = `https://iframe.mediadelivery.net/embed/${env.BUNNY_LIBRARY_ID}/${lesson.video}` +
+               `?token=${token}&expires=${expires}&autoplay=false&preload=false`;
+  }
+  return json({ title: lesson.title, embedUrl, hasNotes, videoUnlocked, videoUnlockAt, notesUnlocked, notesUnlockAt }, 200, cors);
 }
 
 async function notes(env, cors, student, url) {
@@ -192,8 +210,9 @@ async function notes(env, cors, student, url) {
   const lesson = (LESSONS[student.product] || []).find(l => l.day === day);
   if (!lesson || !lesson.notes) return json({ error: "no_notes" }, 404, cors);
 
-  const unlockAt = unlockTime(student.start_date, lesson.day);
-  if (Date.now() < unlockAt) return json({ error: "locked", unlockAt }, 403, cors);
+  // Notes open 6 PM the evening before the video (13 h earlier).
+  const notesUnlockAt = unlockTime(student.start_date, lesson.day) - NOTES_LEAD_MS;
+  if (Date.now() < notesUnlockAt) return json({ error: "locked", unlockAt: notesUnlockAt }, 403, cors);
 
   // Pull the PDF from Bunny Storage server-side; the student never sees the source.
   const srcUrl = `https://${env.BUNNY_STORAGE_HOST}/${env.BUNNY_STORAGE_ZONE}/${lesson.notes}`;

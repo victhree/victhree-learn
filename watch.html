@@ -53,43 +53,60 @@
 
     if (!day) { fail("No lesson selected."); return; }
     var r = await api("/api/video?day=" + day);
-    if (r && r.ok && r.data && r.data.embedUrl) {
-      var tname = (window.TOPIC_NAMES && window.TOPIC_NAMES[day]) || r.data.title || ("Topic " + day);
-      document.getElementById("title").textContent = tname;
-      document.getElementById("topicEyebrow").textContent = "Topic " + day;
-      document.getElementById("frame").src = r.data.embedUrl;
-      setupProgress(document.getElementById("frame"), product, day);
-      var actions = document.getElementById("actions");
-
-      // Notes tab — opens the topic's PDF when one exists.
-      var hasNotes = !!r.data.hasNotes;
-      var notesTab = document.createElement(hasNotes ? "button" : "span");
-      notesTab.className = "tab" + (hasNotes ? "" : " tab-disabled");
-      notesTab.innerHTML = NOTES_ICON + "Notes";
-      if (hasNotes) notesTab.addEventListener("click", function(){ openNotes(day); });
-      else notesTab.title = "Notes for this topic will be added soon";
-      actions.appendChild(notesTab);
-
-      // Take the test tab — opens this topic's mock test on the mock-test site.
-      var testUrl = (window.TOPIC_TESTS && window.TOPIC_TESTS[day]) || "";
-      var testTab = document.createElement(testUrl ? "a" : "span");
-      testTab.className = "tab primary" + (testUrl ? "" : " tab-disabled");
-      testTab.innerHTML = TEST_ICON + "Take the test";
-      if (testUrl) { testTab.href = testUrl; testTab.target = "_blank"; testTab.rel = "noopener"; }
-      else testTab.title = "The test for this topic will be added soon";
-      actions.appendChild(testTab);
-    } else if (r && r.status === 403) {
+    if (r && r.status === 403) {
       var when = (r.data && r.data.unlockAt) ? fmtUnlock(r.data.unlockAt) : "later";
-      fail("This day hasn't unlocked yet. It opens at " + when + ".");
-    } else {
-      fail("This lesson could not be loaded.");
+      fail("This topic hasn't unlocked yet. It opens at " + when + ".");
+      return;
     }
+    if (!r || !r.ok || !r.data) { fail("This lesson could not be loaded."); return; }
+
+    var d = r.data;
+    document.getElementById("title").textContent = (window.TOPIC_NAMES && window.TOPIC_NAMES[day]) || d.title || ("Topic " + day);
+    document.getElementById("topicEyebrow").textContent = "Topic " + day;
+
+    if (d.embedUrl) {
+      document.getElementById("frame").src = d.embedUrl;
+      setupProgress(document.getElementById("frame"), product, day);
+    } else {
+      // Notes have opened but the video hasn't (before its 7 AM unlock).
+      showVideoLocked(d.videoUnlockAt);
+    }
+
+    var actions = document.getElementById("actions");
+
+    // Notes tab: active once notes have opened (6 PM the evening before).
+    var notesReady = !!d.hasNotes && !!d.notesUnlocked;
+    var notesTab = document.createElement(notesReady ? "button" : "span");
+    notesTab.className = "tab" + (notesReady ? "" : " tab-disabled");
+    notesTab.innerHTML = NOTES_ICON + "Notes";
+    if (notesReady) notesTab.addEventListener("click", function(){ openNotes(day); });
+    else notesTab.title = d.hasNotes ? ("Notes open " + fmtUnlock(d.notesUnlockAt)) : "Notes for this topic will be added soon";
+    actions.appendChild(notesTab);
+
+    // Take the test tab: opens this topic's mock test on the mock-test site.
+    var testUrl = (window.TOPIC_TESTS && window.TOPIC_TESTS[day]) || "";
+    var testTab = document.createElement(testUrl ? "a" : "span");
+    testTab.className = "tab primary" + (testUrl ? "" : " tab-disabled");
+    testTab.innerHTML = TEST_ICON + "Take the test";
+    if (testUrl) { testTab.href = testUrl; testTab.target = "_blank"; testTab.rel = "noopener"; }
+    else testTab.title = "The test for this topic will be added soon";
+    actions.appendChild(testTab);
   })();
 
   function fail(text){
     document.getElementById("player").classList.add("hide");
     document.getElementById("msg").innerHTML = '<div class="msg err">' + text + '</div>' +
       '<p><a class="btn ghost" href="dashboard.html#geography">Back to Geography</a></p>';
+  }
+
+  // Shown when notes have opened but the video hasn't yet (before its 7 AM unlock).
+  function showVideoLocked(videoUnlockAt){
+    document.getElementById("player").innerHTML =
+      '<div class="video-locked">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>' +
+      '<p class="vl-main">Today\'s notes are ready below.</p>' +
+      '<p class="vl-sub">The video unlocks at ' + fmtUnlock(videoUnlockAt) + '.</p>' +
+      '</div>';
   }
 
   // Mark this topic complete once the student watches past the halfway point (or finishes).

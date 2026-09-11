@@ -75,7 +75,7 @@
     var actions = document.getElementById("actions");
 
     // Notes tab: active once notes have opened (6 PM the evening before).
-    var notesReady = !!d.hasNotes && !!d.notesUnlocked;
+    var notesReady = !!d.hasNotes && (d.notesUnlocked !== undefined ? !!d.notesUnlocked : true);
     var notesTab = document.createElement(notesReady ? "button" : "span");
     notesTab.className = "tab" + (notesReady ? "" : " tab-disabled");
     notesTab.innerHTML = NOTES_ICON + "Notes";

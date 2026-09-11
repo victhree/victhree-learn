@@ -192,14 +192,17 @@
     r.data.lessons.forEach(function(l){
       var name = (window.TOPIC_NAMES && window.TOPIC_NAMES[l.day]) || l.title;
       var watched = isWatched(product, l.day);
-      var notesOnly = l.available && !l.videoUnlocked;
-      var el = document.createElement(l.available ? "a" : "div");
-      el.className = "topic-row " + (l.available ? "open" : "locked") + (watched ? " done" : "") + (notesOnly ? " notes-only" : "");
-      if (l.available) el.href = "watch.html?day=" + l.day;
+      var available = (l.available !== undefined) ? l.available : l.unlocked;
+      var videoUnlocked = (l.videoUnlocked !== undefined) ? l.videoUnlocked : l.unlocked;
+      var availableAt = (l.availableAt !== undefined) ? l.availableAt : l.unlockAt;
+      var notesOnly = available && !videoUnlocked;
+      var el = document.createElement(available ? "a" : "div");
+      el.className = "topic-row " + (available ? "open" : "locked") + (watched ? " done" : "") + (notesOnly ? " notes-only" : "");
+      if (available) el.href = "watch.html?day=" + l.day;
       var status;
-      if (!l.available) status = LOCK_SVG + 'Unlocks ' + fmtUnlock(l.availableAt);
+      if (!available) status = LOCK_SVG + 'Unlocks ' + fmtUnlock(availableAt);
       else if (watched) status = CHECK_SVG + 'Completed';
-      else if (l.videoUnlocked) status = PLAY_SVG + 'Open now';
+      else if (videoUnlocked) status = PLAY_SVG + 'Open now';
       else status = NOTE_SVG + 'Notes ready';
       el.innerHTML =
         '<span class="tr-main"><span class="tr-num">Topic ' + l.day + '</span><span class="tr-title">' + name + '</span></span>' +

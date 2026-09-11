@@ -137,7 +137,7 @@ input.field:focus,select.field:focus{outline:none;border-color:var(--gold);box-s
 .home-top{display:flex;align-items:center;gap:16px;margin:6px 0 16px}
 .home-top .dash-head{flex:1;margin:0;display:flex;flex-direction:column;justify-content:center}
 .streak-chip{flex:0 0 auto;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:11px;white-space:nowrap;
-  background:var(--white);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:var(--radius);box-shadow:var(--shadow);padding:6px 24px}
+  background:var(--white);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:var(--radius);box-shadow:var(--shadow);padding:11px 24px}
 .streak-chip .sc-flame{font-size:20px;line-height:1}
 .streak-chip .sc-label{font-size:13px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
 .streak-chip .sc-num{font-size:26px;font-weight:800;color:var(--navy);line-height:1}

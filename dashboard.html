@@ -26,7 +26,14 @@
 
   <!-- ===== HOME ===== -->
   <section id="v-home">
-    <div class="dash-head"><h1 class="greeting"><span id="typedText"></span><span class="caret" id="caret" aria-hidden="true">|</span></h1></div>
+    <div class="home-top">
+      <div class="dash-head"><h1 class="greeting"><span id="typedText"></span><span class="caret" id="caret" aria-hidden="true">|</span></h1></div>
+      <div class="streak-chip">
+        <div class="sc-k">&#128293; Streak</div>
+        <div class="sc-num" id="streakNum">1</div>
+        <div class="sc-sub" id="streakSub">day</div>
+      </div>
+    </div>
 
     <a class="today-card" id="todayCard" href="#" hidden>
       <span class="today-k">Today's focus</span>
@@ -34,19 +41,6 @@
       <span class="today-status" id="todayStatus"></span>
       <span class="today-go" id="todayGo">Open &rarr;</span>
     </a>
-
-    <div class="stat-row">
-      <div class="stat-card" id="examCard" hidden>
-        <div class="stat-k" id="examName">Exam</div>
-        <div class="stat-num" id="examNum">--</div>
-        <div class="stat-sub">days to go</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-k">&#128293; Study streak</div>
-        <div class="stat-num" id="streakNum">1</div>
-        <div class="stat-sub" id="streakSub">day</div>
-      </div>
-    </div>
 
     <div class="progress-card" id="progressCard" hidden>
       <div class="progress-top"><span class="progress-label">Course progress</span><span class="progress-pct" id="progPct">0%</span></div>
@@ -73,6 +67,11 @@
       <p class="quote-text" id="quoteText">&nbsp;</p>
       <span class="quote-author" id="quoteAuthor"></span>
     </div>
+
+    <section class="exam-band" id="examBand" hidden>
+      <div class="exam-band-title">Days to your exam</div>
+      <div class="exam-timers" id="examTimers"></div>
+    </section>
   </section>
 
   <!-- ===== LECTURES / SUBJECTS ===== -->
@@ -162,17 +161,41 @@
     document.getElementById("quoteAuthor").textContent = q.a ? "— " + q.a : "";
   })();
 
-  // Study streak + exam countdown (no login data needed).
+  // Study streak with a count-up animation (ticks 1..N and stops).
+  function animateCount(el, target){
+    target = Math.max(1, target | 0);
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce || target <= 1) { el.textContent = target; return; }
+    var cur = 1; el.textContent = cur;
+    var iv = setInterval(function(){ cur++; el.textContent = cur; if (cur >= target) clearInterval(iv); }, 140);
+  }
   (function(){
     var streak = bumpStreak();
-    document.getElementById("streakNum").textContent = streak;
     document.getElementById("streakSub").textContent = streak === 1 ? "day" : "days";
-    var e = nextExam();
-    if (e) {
-      document.getElementById("examName").textContent = "To " + e.name;
-      document.getElementById("examNum").textContent = daysUntil(e.date);
-      document.getElementById("examCard").hidden = false;
-    }
+    animateCount(document.getElementById("streakNum"), streak);
+  })();
+
+  // Exam countdown band — LED timers for each upcoming exam.
+  (function(){
+    var band = document.getElementById("examBand"), timers = document.getElementById("examTimers");
+    var list = (window.EXAMS || []).filter(function(e){ return e.date && daysUntil(e.date) >= 0; })
+      .sort(function(a, b){ return daysUntil(a.date) - daysUntil(b.date); });
+    if (!list.length) return;
+    timers.innerHTML = "";
+    list.forEach(function(e){
+      var dateStr = new Date(e.date + "T00:00:00").toLocaleDateString("en-IN", { day:"numeric", month:"long", year:"numeric" });
+      var days = daysUntil(e.date);
+      var el = document.createElement("div"); el.className = "exam-timer";
+      var name = document.createElement("div"); name.className = "et-name"; name.textContent = e.name;
+      var date = document.createElement("div"); date.className = "et-date"; date.textContent = dateStr;
+      var count = document.createElement("div"); count.className = "et-count";
+      var n = document.createElement("span"); n.className = "n"; n.textContent = days;
+      var unit = document.createElement("span"); unit.className = "et-unit"; unit.textContent = days === 1 ? "day left" : "days left";
+      count.appendChild(n); count.appendChild(unit);
+      el.appendChild(name); el.appendChild(date); el.appendChild(count);
+      timers.appendChild(el);
+    });
+    band.hidden = false;
   })();
 
   // Full welcome message, typed out: "Welcome, <name>." + a random greeting line.

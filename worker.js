@@ -247,8 +247,11 @@ async function caList(env, cors, student) {
 // Streams one current-affairs PDF (open to all enrolled students).
 async function caFile(env, cors, student, url) {
   const file = url.searchParams.get("file") || "";
-  if (!/^[A-Za-z0-9._-]+\.pdf$/i.test(file)) return json({ error: "bad_file" }, 400, cors); // no slashes / traversal
-  const srcUrl = `https://${env.BUNNY_STORAGE_HOST}/${env.BUNNY_STORAGE_ZONE}/current-affairs/${file}`;
+  // Allow spaces/parentheses in the name, but block path separators and traversal.
+  if (file.indexOf("/") !== -1 || file.indexOf("\\") !== -1 || file.indexOf("..") !== -1 || !/\.pdf$/i.test(file)) {
+    return json({ error: "bad_file" }, 400, cors);
+  }
+  const srcUrl = `https://${env.BUNNY_STORAGE_HOST}/${env.BUNNY_STORAGE_ZONE}/current-affairs/${encodeURIComponent(file)}`;
   const res = await fetch(srcUrl, { headers: { AccessKey: env.BUNNY_STORAGE_KEY } });
   if (!res.ok) return json({ error: "unavailable" }, 502, cors);
   const headers = new Headers(cors);
@@ -266,7 +269,7 @@ function caTitle(name) {
     const mo = parseInt(m[2], 10);
     if (mo >= 1 && mo <= 12) return months[mo - 1] + " " + m[1];
   }
-  return base.replace(/[-_]/g, " ");
+  return base; // otherwise use the filename as the title (e.g. "Defence Digest- April 2026")
 }
 
 /* ============================== ADMIN API ================================ */

@@ -46,6 +46,34 @@ window.EXAMS = [
   { name: "CDS",   date: "2027-04-11" },   // <-- replace with the real CDS date
   { name: "AFCAT", date: "2027-02-14" }    // <-- replace with the real AFCAT date
 ];
+
+/* Word of the Day marquee: sample words slide across; the whole strip links to
+   the full Word of the Day page. Edit the words and the URL freely. */
+window.WOTD_URL = "https://vocab.victhreedefence.com/wotd.html";
+window.VOCAB_WORDS = [
+  { w: "Alacrity",   m: "brisk, cheerful readiness" },
+  { w: "Sagacious",  m: "having keen judgement" },
+  { w: "Fortitude",  m: "courage in adversity" },
+  { w: "Prudent",    m: "acting with care and foresight" },
+  { w: "Tenacity",   m: "persistent determination" },
+  { w: "Candour",    m: "honest, frank expression" },
+  { w: "Diligent",   m: "steady, careful effort" },
+  { w: "Resolute",   m: "firmly determined" },
+  { w: "Astute",     m: "sharp and shrewd" },
+  { w: "Vigilant",   m: "keeping careful watch" },
+  { w: "Intrepid",   m: "fearless and bold" },
+  { w: "Meticulous", m: "precise about detail" }
+];
+
+/* "More from VicThree" links, shown on the dashboard home (open in a new tab).
+   Edit names / subtitles / URLs freely; verify each URL is your live address. */
+window.TOOLS = [
+  { name: "Vocabulary",      sub: "Synonyms, antonyms, idioms, quizzes", url: "https://vocab.victhreedefence.com/" },
+  { name: "PYQ Library",     sub: "CDS past papers, quizzable",          url: "https://pyq.victhreedefence.com/" },
+  { name: "Mock Tests",      sub: "Full & sectional mocks",              url: "https://victhree.github.io/victhree-mocks/" },
+  { name: "SSB Interview",   sub: "Personal interview trainer",          url: "https://interview.victhreedefence.com/" },
+  { name: "SSB Psych & GTO", sub: "WAT, SRT, group tasks",               url: "https://ssb.victhreedefence.com/" }
+];
 function daysUntil(dateStr){ return Math.ceil((new Date(dateStr + "T00:00:00") - new Date()) / 86400000); }
 function nextExam(){
   return (window.EXAMS || [])

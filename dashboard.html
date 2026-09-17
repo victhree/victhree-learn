@@ -50,6 +50,11 @@
       <span class="today-status" id="todayStatus"></span>
       <span class="today-go" id="todayGo">Open &rarr;</span>
     </a>
+
+    <section class="ann-sec" id="annSec" hidden>
+      <div class="section-title">Announcements</div>
+      <div class="ann-list" id="annList"></div>
+    </section>
     <div class="tiles">
       <a class="tile" id="nav-lectures" href="#">
         <span class="tile-ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/></svg></span>
@@ -67,6 +72,17 @@
         <span class="tile-sub">Monthly updates</span>
       </a>
     </div>
+    <a class="vocab-marquee" id="vocabMarquee" href="#" target="_blank" rel="noopener" aria-label="Word of the Day">
+      <span class="vm-label">Word<br>of the Day</span>
+      <span class="vm-viewport"><span class="vm-track" id="vmTrack"></span></span>
+      <span class="vm-go" aria-hidden="true">&#8599;</span>
+    </a>
+
+    <section class="tools-sec" id="toolsSec">
+      <div class="section-title">More from VicThree</div>
+      <div class="tools-grid" id="toolsGrid"></div>
+    </section>
+
     <div class="quote-tile">
       <p class="quote-text" id="quoteText">&nbsp;</p>
       <span class="quote-author" id="quoteAuthor"></span>
@@ -150,6 +166,7 @@
 
 <script src="assets/quotes.js"></script>
 <script src="assets/greetings.js"></script>
+<script src="assets/announcements.js"></script>
 <script src="assets/portal.js"></script>
 <script>
   if (!requireLogin()) { /* redirected */ }
@@ -199,6 +216,68 @@
       timers.appendChild(el);
     });
     band.hidden = false;
+  })();
+
+  // Announcements — newest first; hidden entirely when there are none.
+  (function(){
+    var sec = document.getElementById("annSec"), list = document.getElementById("annList");
+    if (!sec || !list) return;
+    var items = (window.ANNOUNCEMENTS || []).slice().sort(function(a,b){
+      return String(b.date||"").localeCompare(String(a.date||""));
+    });
+    if (!items.length) return;
+    list.innerHTML = "";
+    items.forEach(function(a){
+      var row = document.createElement("div"); row.className = "ann-item";
+      if (a.date) {
+        var d = document.createElement("span"); d.className = "ann-date";
+        d.textContent = new Date(a.date + "T00:00:00").toLocaleDateString("en-IN", { day:"numeric", month:"short" });
+        row.appendChild(d);
+      }
+      var body = document.createElement("div"); body.className = "ann-body";
+      if (a.title) { var t = document.createElement("div"); t.className = "ann-title"; t.textContent = a.title; body.appendChild(t); }
+      var p = document.createElement("div"); p.className = "ann-text"; p.textContent = a.text || ""; body.appendChild(p);
+      row.appendChild(body);
+      list.appendChild(row);
+    });
+    sec.hidden = false;
+  })();
+
+  // "More from VicThree" tiles.
+  (function(){
+    var sec = document.getElementById("toolsSec"), grid = document.getElementById("toolsGrid");
+    if (!sec || !grid) return;
+    var tools = window.TOOLS || [];
+    if (!tools.length) { sec.hidden = true; return; }
+    grid.innerHTML = "";
+    tools.forEach(function(t){
+      var a = document.createElement("a"); a.className = "tool-tile";
+      a.href = t.url || "#"; a.target = "_blank"; a.rel = "noopener";
+      var nm = document.createElement("span"); nm.className = "tool-name"; nm.textContent = t.name || "";
+      var sub = document.createElement("span"); sub.className = "tool-sub"; sub.textContent = t.sub || "";
+      var go = document.createElement("span"); go.className = "tool-go"; go.setAttribute("aria-hidden","true"); go.innerHTML = "&#8599;";
+      a.appendChild(nm); a.appendChild(sub); a.appendChild(go);
+      grid.appendChild(a);
+    });
+  })();
+
+  // Word of the Day marquee — words slide across; the whole strip links to the
+  // full Word of the Day page. Cards are duplicated once for a seamless loop.
+  (function(){
+    var strip = document.getElementById("vocabMarquee"), track = document.getElementById("vmTrack");
+    if (!strip || !track) return;
+    var words = window.VOCAB_WORDS || [];
+    if (!words.length) { strip.style.display = "none"; return; }
+    if (window.WOTD_URL) strip.href = window.WOTD_URL;
+    function card(item){
+      var c = document.createElement("span"); c.className = "vm-card";
+      var w = document.createElement("span"); w.className = "vm-word"; w.textContent = item.w || "";
+      var m = document.createElement("span"); m.className = "vm-mean"; m.textContent = item.m || "";
+      c.appendChild(w); c.appendChild(m); return c;
+    }
+    track.innerHTML = "";
+    words.forEach(function(it){ track.appendChild(card(it)); });      // first set
+    words.forEach(function(it){ track.appendChild(card(it)); });      // duplicate for the loop
   })();
 
   // Full welcome message, typed out: "Welcome, <name>." + a random greeting line.

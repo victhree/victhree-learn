@@ -72,6 +72,13 @@
         <span class="tile-sub">Monthly updates</span>
       </a>
     </div>
+    <a class="today-card ssb-entry" id="ssbEntry" href="#">
+      <span class="today-k">SSB practice</span>
+      <span class="today-title">Your SSB progress</span>
+      <span class="today-status">See your strengths and the areas to focus on</span>
+      <span class="today-go">Open &rarr;</span>
+    </a>
+
     <a class="vocab-marquee" id="vocabMarquee" href="#" target="_blank" rel="noopener" aria-label="Word of the Day">
       <span class="vm-label">Word<br>of the Day</span>
       <span class="vm-viewport"><span class="vm-track" id="vmTrack"></span></span>
@@ -158,6 +165,44 @@
     <p class="muted" style="margin:-8px 0 16px;font-size:13.5px">Monthly current-affairs magazine. All issues are open.</p>
     <div id="ca-msg"></div>
     <div class="topic-list" id="ca-list"></div>
+  </section>
+
+  <!-- ===== SSB PROGRESS ===== -->
+  <section id="v-ssb" class="hide">
+    <a class="back-link" id="back-ssb" href="#">&larr; Home</a>
+    <div class="section-title">Your SSB progress</div>
+    <div id="ssb-msg"></div>
+    <div id="ssb-body" hidden>
+      <div class="ssb-grid">
+        <div class="ssb-panel">
+          <div class="ssb-k">Focus areas</div>
+          <p class="ssb-note">The qualities to work on next.</p>
+          <div class="chip-row" id="ssb-focus"></div>
+        </div>
+        <div class="ssb-panel">
+          <div class="ssb-k">Your strengths</div>
+          <p class="ssb-note">The qualities you show most often.</p>
+          <div class="chip-row" id="ssb-strengths"></div>
+        </div>
+      </div>
+      <div class="ssb-panel">
+        <div class="ssb-k">Tests taken</div>
+        <div class="chip-row" id="ssb-counts"></div>
+      </div>
+      <div class="ssb-panel">
+        <div class="ssb-k">All qualities</div>
+        <div class="table-wrap">
+          <table class="ssb-table">
+            <thead><tr><th>Quality</th><th>Strength</th><th>To work on</th></tr></thead>
+            <tbody id="ssb-olq-rows"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="ssb-panel">
+        <div class="ssb-k">Recent tests</div>
+        <div id="ssb-attempts"></div>
+      </div>
+    </div>
   </section>
 
 </main>
@@ -252,7 +297,7 @@
     grid.innerHTML = "";
     tools.forEach(function(t){
       var a = document.createElement("a"); a.className = "tool-tile";
-      a.href = t.url || "#"; a.target = "_blank"; a.rel = "noopener";
+      a.href = t.handoff ? ssbHandoff(t.url) : (t.url || "#"); a.target = "_blank"; a.rel = "noopener";
       var nm = document.createElement("span"); nm.className = "tool-name"; nm.textContent = t.name || "";
       var sub = document.createElement("span"); sub.className = "tool-sub"; sub.textContent = t.sub || "";
       var go = document.createElement("span"); go.className = "tool-go"; go.setAttribute("aria-hidden","true"); go.innerHTML = "&#8599;";
@@ -305,7 +350,7 @@
   }
 
   // View switching (single page, no reloads).
-  var VIEWS = ["v-home","v-lectures","v-geography","v-empty","v-notes","v-ca"];
+  var VIEWS = ["v-home","v-lectures","v-geography","v-empty","v-notes","v-ca","v-ssb"];
   function showView(id){
     VIEWS.forEach(function(v){ document.getElementById(v).classList.toggle("hide", v!==id); });
     window.scrollTo(0,0);
@@ -313,12 +358,13 @@
 
   // Drive folder navigation through the URL hash so the browser's back/forward
   // buttons (and the in-page back links) work normally.
-  var ROUTES = { "":"v-home", "home":"v-home", "lectures":"v-lectures", "geography":"v-geography", "notes":"v-notes", "current-affairs":"v-ca" };
+  var ROUTES = { "":"v-home", "home":"v-home", "lectures":"v-lectures", "geography":"v-geography", "notes":"v-notes", "current-affairs":"v-ca", "ssb":"v-ssb" };
   function renderRoute(){
     var h = (location.hash || "").replace(/^#/, "");
     var view = ROUTES[h] || "v-home";
     if (view === "v-notes") loadNotes();
     if (view === "v-ca") loadCA();
+    if (view === "v-ssb") loadSsb();
     showView(view);
   }
   window.addEventListener("hashchange", renderRoute);
@@ -329,11 +375,13 @@
   on("nav-geography", function(){ go("geography"); });
   on("nav-notes", function(){ go("notes"); });
   on("nav-currentaffairs", function(){ go("current-affairs"); });
+  on("ssbEntry", function(){ go("ssb"); });
   on("back-home", function(){ history.back(); });
   on("back-lectures", function(){ history.back(); });
   on("back-empty", function(){ history.back(); });
   on("back-notes", function(){ history.back(); });
   on("back-ca", function(){ history.back(); });
+  on("back-ssb", function(){ history.back(); });
 
   // Notes folder: list every topic's notes; a note opens once it has unlocked (6 PM the evening before).
   var notesLoaded = false;
@@ -395,6 +443,77 @@
       list.appendChild(a);
     });
   }
+
+  // SSB progress: the student's rolling picture of Officer-Like Qualities.
+  var ssbLoaded = false;
+  function ssbChips(host, keys, cls){
+    host.innerHTML = "";
+    if (!keys || !keys.length) { host.innerHTML = '<span class="muted" style="font-size:13.5px">Nothing here yet.</span>'; return; }
+    keys.forEach(function(k){
+      var c = document.createElement("span"); c.className = "chip " + (cls || ""); c.textContent = olqLabel(k);
+      host.appendChild(c);
+    });
+  }
+  async function loadSsb(){
+    if (ssbLoaded) return; ssbLoaded = true;
+    var msg = document.getElementById("ssb-msg"), body = document.getElementById("ssb-body");
+    msg.innerHTML = '<div class="muted" style="padding:6px 0">Loading…</div>';
+    var r = await api("/api/ssb/me");
+    if (!r || !r.ok) { ssbLoaded = false; msg.innerHTML = '<div class="msg err">Could not load your SSB progress. Please try again.</div>'; return; }
+    var d = r.data || {};
+    if (!d.total) {
+      body.hidden = true;
+      msg.innerHTML = '<div class="empty-state"><span class="empty-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7z"/><path d="M9 12l2 2 4-4"/></svg></span><h3>No SSB tests tracked yet</h3><p class="muted">Open the SSB practice from below and take a test while you are signed in. Your strengths and focus areas will build up here.</p></div>';
+      return;
+    }
+    msg.innerHTML = ""; body.hidden = false;
+
+    // Focus areas (weak) and strengths (most reflected).
+    ssbChips(document.getElementById("ssb-focus"), d.focus_olqs || [], "work");
+    var prof = (d.profile || []).slice();
+    var strengths = prof.filter(function(p){ return p.reflected_count > 0; })
+      .sort(function(a,b){ return b.reflected_count - a.reflected_count; })
+      .slice(0, 5).map(function(p){ return p.olq; });
+    ssbChips(document.getElementById("ssb-strengths"), strengths, "strength");
+
+    // Tests taken by type.
+    var counts = document.getElementById("ssb-counts"); counts.innerHTML = "";
+    var cm = d.countsByMode || {};
+    var modes = Object.keys(cm);
+    if (!modes.length) counts.innerHTML = '<span class="muted" style="font-size:13.5px">None yet.</span>';
+    modes.forEach(function(m){
+      var c = document.createElement("span"); c.className = "chip count";
+      c.textContent = ssbModeName(m) + ": " + cm[m];
+      counts.appendChild(c);
+    });
+
+    // All qualities table (sorted by most work-on first, then by name).
+    var rows = document.getElementById("ssb-olq-rows"); rows.innerHTML = "";
+    prof.sort(function(a,b){ return (b.work_count - a.work_count) || olqLabel(a.olq).localeCompare(olqLabel(b.olq)); });
+    if (!prof.length) { rows.innerHTML = '<tr><td colspan="3" class="muted">Nothing yet.</td></tr>'; }
+    prof.forEach(function(p){
+      var tr = document.createElement("tr");
+      tr.innerHTML = '<td>' + esc(olqLabel(p.olq)) + '</td><td>' + (p.reflected_count || 0) + '</td><td>' + (p.work_count || 0) + '</td>';
+      rows.appendChild(tr);
+    });
+
+    // Recent tests.
+    var att = document.getElementById("ssb-attempts"); att.innerHTML = "";
+    (d.attempts || []).forEach(function(a){
+      var card = document.createElement("div"); card.className = "ssb-attempt";
+      var head = document.createElement("div"); head.className = "ssb-attempt-head";
+      var nm = document.createElement("span"); nm.className = "ssb-attempt-mode"; nm.textContent = ssbModeName(a.mode);
+      var dt = document.createElement("span"); dt.className = "ssb-attempt-date"; dt.textContent = fmtDate(a.createdAt);
+      head.appendChild(nm); head.appendChild(dt); card.appendChild(head);
+      if (a.summary) { var p = document.createElement("p"); p.className = "ssb-attempt-sum"; p.textContent = a.summary; card.appendChild(p); }
+      var chips = document.createElement("div"); chips.className = "chip-row";
+      (a.reflected || []).forEach(function(k){ var c = document.createElement("span"); c.className = "chip strength sm"; c.textContent = olqLabel(k); chips.appendChild(c); });
+      (a.work || []).forEach(function(k){ var c = document.createElement("span"); c.className = "chip work sm"; c.textContent = olqLabel(k); chips.appendChild(c); });
+      if (chips.childNodes.length) card.appendChild(chips);
+      att.appendChild(card);
+    });
+  }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
 
   var LOCK_SVG='<svg class="lock-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
   var PLAY_SVG='<svg class="lock-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l14 8-14 8z"/></svg>';

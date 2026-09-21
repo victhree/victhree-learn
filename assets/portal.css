@@ -269,6 +269,32 @@ tbody tr:last-child td{border-bottom:none}
 .tool-tile .tool-name{font-size:16px;font-weight:800;color:var(--navy)}
 .tool-tile .tool-sub{font-size:13px;color:var(--muted);line-height:1.45}
 .tool-tile .tool-go{position:absolute;top:14px;right:16px;color:var(--gold);font-size:15px;font-weight:800}
+
+/* ---- SSB progress view ---- */
+.ssb-entry .today-k{color:var(--gold-soft)}
+.ssb-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:560px){.ssb-grid{grid-template-columns:1fr}}
+.ssb-panel{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:16px 18px;margin-bottom:16px}
+.ssb-panel .ssb-k{font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
+.ssb-panel .ssb-note{margin:0 0 10px;font-size:13px;color:var(--muted)}
+.chip-row{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-block;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:700;
+  background:#eef1f6;color:var(--navy);border:1px solid var(--line)}
+.chip.sm{padding:4px 10px;font-size:12px;font-weight:600}
+.chip.strength{background:var(--green-bg);color:#1f6b43;border-color:#bfe3cd}
+.chip.work{background:#fbf1dd;color:#8a6d1e;border-color:#ecd9a8}
+.chip.count{background:#eaf0fb;color:var(--navy);border-color:#cfdcf3}
+.ssb-table{width:100%;border-collapse:collapse;font-size:14px}
+.ssb-table th,.ssb-table td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}
+.ssb-table th{font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);font-weight:800}
+.ssb-table td:nth-child(2),.ssb-table td:nth-child(3),
+.ssb-table th:nth-child(2),.ssb-table th:nth-child(3){text-align:center;width:110px}
+.ssb-attempt{border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:12px;background:#fafbfe}
+.ssb-attempt-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px}
+.ssb-attempt-mode{font-weight:800;color:var(--navy);font-size:14.5px}
+.ssb-attempt-date{font-size:12.5px;color:var(--muted)}
+.ssb-attempt-sum{margin:0 0 9px;font-size:13.5px;color:#33435c;line-height:1.55}
 .tile.locked .tile-lock{color:var(--muted)}
 
 /* ---- footer ---- */

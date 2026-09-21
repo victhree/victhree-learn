@@ -67,13 +67,42 @@ window.VOCAB_WORDS = [
 
 /* "More from VicThree" links, shown on the dashboard home (open in a new tab).
    Edit names / subtitles / URLs freely; verify each URL is your live address. */
+// `handoff: true` means "carry the student's login across to this site" — the
+// tile appends the login token in the URL fragment so the SSB site recognises
+// the signed-in course student and tracks their performance.
 window.TOOLS = [
   { name: "Vocabulary",      sub: "Synonyms, antonyms, idioms, quizzes", url: "https://vocab.victhreedefence.com/" },
   { name: "PYQ Library",     sub: "CDS past papers, quizzable",          url: "https://pyq.victhreedefence.com/" },
   { name: "Mock Tests",      sub: "Full & sectional mocks",              url: "https://victhree.github.io/victhree-mocks/" },
-  { name: "SSB Interview",   sub: "Personal interview trainer",          url: "https://interview.victhreedefence.com/" },
-  { name: "SSB Psych & GTO", sub: "WAT, SRT, group tasks",               url: "https://ssb.victhreedefence.com/" }
+  { name: "SSB Interview",   sub: "Personal interview trainer",          url: "https://interview.victhreedefence.com/", handoff: true },
+  { name: "SSB Psych & GTO", sub: "WAT, SRT, group tasks",               url: "https://ssb.victhreedefence.com/",       handoff: true }
 ];
+
+// Append the login token to an SSB link so the signed-in student is recognised there.
+function ssbHandoff(url){
+  try { var t = getToken(); if (!t || !url) return url || "#"; return url + "#vt=" + encodeURIComponent(t); }
+  catch { return url || "#"; }
+}
+
+// Friendly names for the 15 canonical Officer-Like Qualities (used on the progress views).
+window.OLQ_LABELS = {
+  effective_intelligence: "Effective intelligence", reasoning_ability: "Reasoning ability",
+  organising_ability: "Organising ability", power_of_expression: "Power of expression",
+  social_adaptability: "Social adaptability", cooperation: "Cooperation",
+  sense_of_responsibility: "Sense of responsibility", initiative: "Initiative",
+  self_confidence: "Self-confidence", speed_of_decision: "Speed of decision",
+  ability_to_influence_the_group: "Ability to influence the group", liveliness: "Liveliness",
+  determination: "Determination", courage: "Courage", stamina: "Stamina"
+};
+function olqLabel(k){ return (window.OLQ_LABELS && window.OLQ_LABELS[k]) || String(k || ""); }
+
+// Friendly names for the six SSB test types.
+window.SSB_MODE_NAMES = {
+  WAT: "Word Association (WAT)", SRT: "Situation Reaction (SRT)", SDT: "Self-Description (SDT)",
+  TAT: "Thematic Apperception (TAT)", PPDT: "Picture Perception (PPDT)", GPE: "Group Planning (GPE)"
+};
+function ssbModeName(m){ return (window.SSB_MODE_NAMES && window.SSB_MODE_NAMES[m]) || String(m || ""); }
+function fmtDate(ms){ try { return new Date(ms).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }); } catch { return ""; } }
 function daysUntil(dateStr){ return Math.ceil((new Date(dateStr + "T00:00:00") - new Date()) / 86400000); }
 function nextExam(){
   return (window.EXAMS || [])

@@ -62,6 +62,18 @@
         </table>
       </div>
     </div>
+
+    <div class="card">
+      <h2 style="margin-bottom:6px">SSB performance</h2>
+      <p class="muted" style="font-family:var(--sans);font-size:.9rem">Every student's tracked SSB practice. Click a student to see their qualities and recent tests.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Tests</th><th>Weakest area</th><th>Last active</th><th></th></tr></thead>
+          <tbody id="ssb-rows"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div id="ssb-detail" class="hide" style="margin-top:18px"></div>
+    </div>
   </div>
 
 </main>
@@ -92,6 +104,7 @@
     var t = new Date(Date.now()+330*60000).toISOString().slice(0,10);
     document.getElementById("s-start").value = t;
     loadStudents();
+    loadSsbRoster();
   }
 
   document.getElementById("savekey").addEventListener("click", async function(){
@@ -133,6 +146,57 @@
   }
 
   function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+
+  // ---- SSB performance ----
+  async function loadSsbRoster(){
+    var r = await adminApi("/api/admin/ssb/roster");
+    var rows = document.getElementById("ssb-rows");
+    if (!r.ok){ rows.innerHTML = '<tr><td colspan="5" class="muted">Could not load.</td></tr>'; return; }
+    var list = (r.data && r.data.students) || [];
+    var withData = list.filter(function(s){ return s.attempts > 0; });
+    if (!withData.length){ rows.innerHTML = '<tr><td colspan="5" class="muted">No SSB tests tracked yet.</td></tr>'; return; }
+    rows.innerHTML = withData.map(function(s){
+      return '<tr>'+
+        '<td>'+esc(s.name)+'<div class="muted" style="font-size:.8rem">'+esc(s.email)+'</div></td>'+
+        '<td>'+s.attempts+'</td>'+
+        '<td>'+(s.topWeak?esc(olqLabel(s.topWeak)):'<span class="muted">—</span>')+'</td>'+
+        '<td>'+(s.lastAt?esc(fmtDate(s.lastAt)):'<span class="muted">—</span>')+'</td>'+
+        '<td><a href="#" class="hdr-action ssb-view" data-id="'+s.id+'">View</a></td>'+
+      '</tr>';
+    }).join("");
+    Array.prototype.forEach.call(document.querySelectorAll(".ssb-view"), function(a){
+      a.addEventListener("click", function(e){ e.preventDefault(); loadSsbDetail(a.getAttribute("data-id")); });
+    });
+  }
+
+  async function loadSsbDetail(id){
+    var box = document.getElementById("ssb-detail");
+    box.classList.remove("hide");
+    box.innerHTML = '<p class="muted">Loading…</p>';
+    var r = await adminApi("/api/admin/ssb/student?id="+encodeURIComponent(id));
+    if (!r.ok){ box.innerHTML = '<div class="msg err">Could not load that student.</div>'; return; }
+    var d = r.data || {}, s = d.student || {};
+    var prof = (d.profile || []).slice().sort(function(a,b){ return (b.work_count-a.work_count) || olqLabel(a.olq).localeCompare(olqLabel(b.olq)); });
+    var focus = (d.focus_olqs || []).map(function(k){ return '<span class="pill trial">'+esc(olqLabel(k))+'</span>'; }).join(" ") || '<span class="muted">—</span>';
+    var olqTable = prof.length ? ('<table style="margin-top:8px"><thead><tr><th>Quality</th><th>Strength</th><th>To work on</th></tr></thead><tbody>'+
+      prof.map(function(p){ return '<tr><td>'+esc(olqLabel(p.olq))+'</td><td>'+(p.reflected_count||0)+'</td><td>'+(p.work_count||0)+'</td></tr>'; }).join("")+
+      '</tbody></table>') : '<p class="muted">No qualities recorded yet.</p>';
+    var attempts = (d.attempts || []).map(function(a){
+      var chips = (a.work||[]).map(function(k){ return esc(olqLabel(k)); }).join(", ");
+      return '<div style="border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:10px">'+
+        '<div style="display:flex;justify-content:space-between;gap:10px"><strong>'+esc(ssbModeName(a.mode))+'</strong>'+
+        '<span class="muted" style="font-size:.85rem">'+esc(fmtDate(a.createdAt))+'</span></div>'+
+        (a.summary?'<p style="margin:6px 0 0;font-size:.9rem;color:#33435c">'+esc(a.summary)+'</p>':'')+
+        (chips?'<p style="margin:6px 0 0;font-size:.82rem" class="muted">To work on: '+chips+'</p>':'')+
+      '</div>';
+    }).join("") || '<p class="muted">No tests yet.</p>';
+    box.innerHTML = '<h3 style="margin-bottom:4px">'+esc(s.name||"")+'</h3>'+
+      '<p class="muted" style="font-size:.85rem;margin-top:0">'+esc(s.email||"")+' · '+d.total+' test'+(d.total===1?"":"s")+'</p>'+
+      '<p style="margin:10px 0 2px"><strong>Focus areas:</strong> '+focus+'</p>'+
+      olqTable +
+      '<h4 style="margin:16px 0 8px">Recent tests</h4>'+ attempts;
+    box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
 
   if (adminKey()) enterPanel();
 </script>

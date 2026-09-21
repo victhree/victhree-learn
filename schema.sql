@@ -23,3 +23,37 @@ CREATE TABLE IF NOT EXISTS login_codes (
 );
 
 CREATE INDEX IF NOT EXISTS idx_students_email ON students(email);
+
+-- =============================================================================
+-- SSB performance tracking (added for the SSB integration).
+-- One row per completed+analysed SSB test attempt (raw history), plus a rolling
+-- per-student tally of Officer-Like Qualities so we can show a running picture.
+-- Run this block once in the D1 Console (safe to re-run: IF NOT EXISTS).
+-- =============================================================================
+
+-- One row per completed SSB test attempt. We store the summary + the qualities
+-- only (not the full word-for-word answers); the student keeps their own PDF.
+CREATE TABLE IF NOT EXISTS ssb_attempts (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  student_id      INTEGER NOT NULL,          -- who took it (from their login token)
+  mode            TEXT NOT NULL,             -- WAT | SRT | SDT | TAT | PPDT | GPE
+  created_at      INTEGER NOT NULL,          -- ms timestamp
+  items_count     INTEGER NOT NULL DEFAULT 0,
+  attempted_count INTEGER NOT NULL DEFAULT 0,
+  seconds_used    INTEGER NOT NULL DEFAULT 0,
+  summary         TEXT,                      -- the personality snapshot (text)
+  reflected_keys  TEXT,                      -- JSON array of canonical OLQ keys
+  work_keys       TEXT                       -- JSON array of canonical OLQ keys
+);
+CREATE INDEX IF NOT EXISTS idx_ssb_attempts_student ON ssb_attempts(student_id, created_at);
+
+-- The rolling picture: for each student, how many times each of the 15 OLQs has
+-- shown up as a strength (reflected) vs. a thing to work on. Updated on every attempt.
+CREATE TABLE IF NOT EXISTS ssb_olq_profile (
+  student_id      INTEGER NOT NULL,
+  olq             TEXT NOT NULL,             -- one of the 15 canonical OLQ keys
+  reflected_count INTEGER NOT NULL DEFAULT 0,
+  work_count      INTEGER NOT NULL DEFAULT 0,
+  last_seen_at    INTEGER NOT NULL,          -- ms timestamp of the most recent attempt
+  PRIMARY KEY (student_id, olq)
+);

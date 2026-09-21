@@ -58,6 +58,16 @@ const SESSION_TTL_MS = 30 * 24 * 3600 * 1000; // login lasts 30 days
 const VIDEO_TOKEN_TTL_S = 300;           // signed video URL valid 5 minutes
 const NOTES_LEAD_MS = 13 * 3600 * 1000;  // notes open 6 PM the evening before the 7 AM video (13 h earlier)
 
+// The 15 canonical Officer-Like Qualities. The SSB analysis reports strengths and
+// weak points using ONLY these keys, so they can be tallied per student over time.
+const OLQ_KEYS = [
+  "effective_intelligence", "reasoning_ability", "organising_ability", "power_of_expression",
+  "social_adaptability", "cooperation", "sense_of_responsibility",
+  "initiative", "self_confidence", "speed_of_decision", "ability_to_influence_the_group",
+  "liveliness", "determination", "courage", "stamina"
+];
+const OLQ_SET = new Set(OLQ_KEYS);
+
 /* ============================== ROUTER ==================================== */
 
 export default {
@@ -79,6 +89,11 @@ export default {
       if (path === "/api/ca-file"      && request.method === "GET")  return await withAuth(request, env, cors, caFile, url);
       if (path === "/api/admin/add-student" && request.method === "POST") return await adminAddStudent(request, env, cors);
       if (path === "/api/admin/students"    && request.method === "GET")  return await adminListStudents(request, env, cors);
+      // ---- SSB performance tracking ----
+      if (path === "/api/ssb/attempt"       && request.method === "POST") return await withAuth(request, env, cors, ssbAttempt, url);
+      if (path === "/api/ssb/me"            && request.method === "GET")  return await withAuth(request, env, cors, ssbMe, url);
+      if (path === "/api/admin/ssb/roster"  && request.method === "GET")  return await adminSsbRoster(request, env, cors);
+      if (path === "/api/admin/ssb/student" && request.method === "GET")  return await adminSsbStudent(request, env, cors, url);
       return json({ error: "not_found" }, 404, cors);
     } catch (e) {
       return json({ error: "server_error", detail: String((e && e.message) || e) }, 500, cors);
@@ -154,7 +169,7 @@ async function withAuth(request, env, cors, handler, url) {
   ).bind(sid).first();
   if (!student || student.status !== "active") return json({ error: "inactive" }, 403, cors);
 
-  return await handler(env, cors, student, url);
+  return await handler(env, cors, student, url, request);
 }
 
 /* ============================== STUDENT API ============================== */
@@ -313,6 +328,127 @@ async function adminListStudents(request, env, cors) {
     return { ...s, currentDay, totalDays: total };
   });
   return json({ students: rows }, 200, cors);
+}
+
+/* ========================= SSB TRACKING API ============================= */
+
+// Keep only valid, unique canonical OLQ keys (defends against bad/forged input).
+function cleanOlqs(arr) {
+  if (!Array.isArray(arr)) return [];
+  const out = [], seen = new Set();
+  for (const x of arr) {
+    const k = String(x || "").trim().toLowerCase();
+    if (OLQ_SET.has(k) && !seen.has(k)) { seen.add(k); out.push(k); }
+  }
+  return out.slice(0, 15);
+}
+function clampInt(v, min, max) { v = parseInt(v, 10); if (isNaN(v)) return 0; return Math.max(min, Math.min(max, v)); }
+function safeArr(s) { try { const a = JSON.parse(s); return Array.isArray(a) ? a : []; } catch { return []; } }
+
+// Student (via their login token) records one completed SSB test attempt. The
+// student_id always comes from the token, never from the request body.
+async function ssbAttempt(env, cors, student, url, request) {
+  const b = await readJson(request);
+  const mode = String(b.mode || "").toUpperCase();
+  if (["WAT", "SRT", "SDT", "TAT", "PPDT", "GPE"].indexOf(mode) === -1) return json({ error: "bad_mode" }, 400, cors);
+
+  const reflected = cleanOlqs(b.reflected_keys);
+  const work = cleanOlqs(b.work_keys);
+  const summary = String(b.summary || "").slice(0, 2000);
+  const itemsCount = clampInt(b.items_count, 0, 200);
+  const attemptedCount = clampInt(b.attempted_count, 0, 200);
+  const secondsUsed = clampInt(b.seconds_used, 0, 1000000);
+  const now = Date.now();
+
+  const stmts = [];
+  stmts.push(env.DB.prepare(
+    `INSERT INTO ssb_attempts
+       (student_id, mode, created_at, items_count, attempted_count, seconds_used, summary, reflected_keys, work_keys)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(student.id, mode, now, itemsCount, attemptedCount, secondsUsed, summary, JSON.stringify(reflected), JSON.stringify(work)));
+
+  reflected.forEach(k => stmts.push(env.DB.prepare(
+    `INSERT INTO ssb_olq_profile (student_id, olq, reflected_count, work_count, last_seen_at)
+     VALUES (?, ?, 1, 0, ?)
+     ON CONFLICT(student_id, olq) DO UPDATE SET reflected_count = reflected_count + 1, last_seen_at = excluded.last_seen_at`
+  ).bind(student.id, k, now)));
+
+  work.forEach(k => stmts.push(env.DB.prepare(
+    `INSERT INTO ssb_olq_profile (student_id, olq, reflected_count, work_count, last_seen_at)
+     VALUES (?, ?, 0, 1, ?)
+     ON CONFLICT(student_id, olq) DO UPDATE SET work_count = work_count + 1, last_seen_at = excluded.last_seen_at`
+  ).bind(student.id, k, now)));
+
+  await env.DB.batch(stmts);
+  return json({ ok: true, reflected, work }, 200, cors);
+}
+
+// Build a student's SSB picture: rolling OLQ profile, recent attempts, and the
+// 2-3 weakest OLQs to focus on. Shared by the student view and the admin view.
+async function ssbProfileFor(env, id) {
+  const prof = await env.DB.prepare(
+    "SELECT olq, reflected_count, work_count, last_seen_at FROM ssb_olq_profile WHERE student_id = ?"
+  ).bind(id).all();
+  const profile = prof.results || [];
+
+  const att = await env.DB.prepare(
+    `SELECT id, mode, created_at, items_count, attempted_count, seconds_used, summary, reflected_keys, work_keys
+     FROM ssb_attempts WHERE student_id = ? ORDER BY created_at DESC LIMIT 50`
+  ).bind(id).all();
+  const attempts = (att.results || []).map(a => ({
+    id: a.id, mode: a.mode, createdAt: a.created_at,
+    itemsCount: a.items_count, attemptedCount: a.attempted_count, secondsUsed: a.seconds_used,
+    summary: a.summary, reflected: safeArr(a.reflected_keys), work: safeArr(a.work_keys)
+  }));
+
+  const c = await env.DB.prepare("SELECT COUNT(*) AS n FROM ssb_attempts WHERE student_id = ?").bind(id).first();
+
+  // Focus = OLQs most often flagged to work on (tiebreak: fewer times seen as a strength).
+  const focus = profile.slice()
+    .filter(p => p.work_count > 0)
+    .sort((x, y) => (y.work_count - x.work_count) || (x.reflected_count - y.reflected_count))
+    .slice(0, 3).map(p => p.olq);
+
+  const countsByMode = {};
+  attempts.forEach(a => { countsByMode[a.mode] = (countsByMode[a.mode] || 0) + 1; });
+
+  return { profile, attempts, focus_olqs: focus, countsByMode, total: (c && c.n) || 0 };
+}
+
+async function ssbMe(env, cors, student) {
+  return json(await ssbProfileFor(env, student.id), 200, cors);
+}
+
+async function adminSsbRoster(request, env, cors) {
+  if (!adminOk(request, env)) return json({ error: "forbidden" }, 403, cors);
+  const res = await env.DB.prepare(
+    `SELECT s.id, s.name, s.email, s.product,
+            COUNT(a.id) AS attempts, MAX(a.created_at) AS last_at
+     FROM students s LEFT JOIN ssb_attempts a ON a.student_id = s.id
+     GROUP BY s.id ORDER BY last_at DESC`
+  ).all();
+  // Weakest OLQ per student (most-flagged to work on).
+  const weak = await env.DB.prepare(
+    "SELECT student_id, olq, work_count FROM ssb_olq_profile WHERE work_count > 0 ORDER BY student_id, work_count DESC"
+  ).all();
+  const topWeak = {};
+  (weak.results || []).forEach(w => { if (!topWeak[w.student_id]) topWeak[w.student_id] = w.olq; });
+
+  const students = (res.results || []).map(s => ({
+    id: s.id, name: s.name, email: s.email, product: s.product,
+    attempts: s.attempts || 0, lastAt: s.last_at || null, topWeak: topWeak[s.id] || null
+  }));
+  return json({ students }, 200, cors);
+}
+
+async function adminSsbStudent(request, env, cors, url) {
+  if (!adminOk(request, env)) return json({ error: "forbidden" }, 403, cors);
+  const id = parseInt(url.searchParams.get("id"), 10);
+  if (!id) return json({ error: "bad_id" }, 400, cors);
+  const s = await env.DB.prepare("SELECT id, name, email, product FROM students WHERE id = ?").bind(id).first();
+  if (!s) return json({ error: "no_such_student" }, 404, cors);
+  const data = await ssbProfileFor(env, id);
+  return json({ student: s, ...data }, 200, cors);
 }
 
 /* ============================== HELPERS ================================== */

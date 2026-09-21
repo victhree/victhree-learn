@@ -239,15 +239,15 @@ tbody tr:last-child td{border-bottom:none}
 /* ---- Today's focus + Word of the Day, side by side ---- */
 .today-row{display:flex;gap:16px;margin:0 0 16px;align-items:stretch}
 .today-row .today-card{flex:1 1 0;margin:0}
-.wotd-card{flex:1 1 0;display:flex;flex-direction:column;gap:6px;justify-content:center;
+.wotd-card{position:relative;flex:1 1 0;display:flex;flex-direction:column;gap:8px;justify-content:center;
   background:var(--white);border:1px solid var(--line);border-left:5px solid var(--gold);
-  border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 20px;text-decoration:none;
+  border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 22px 30px;text-decoration:none;
   transition:transform .1s ease,box-shadow .15s ease}
 .wotd-card:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(11,31,58,.2)}
 .wotd-k{font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--gold)}
-.wotd-word{font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;font-size:26px;font-weight:800;color:var(--navy);line-height:1.15}
-.wotd-mean{font-size:14px;color:var(--muted);line-height:1.4}
-.wotd-go{margin-top:4px;font-weight:800;font-size:12px;letter-spacing:.03em;text-transform:uppercase;color:var(--gold)}
+.wotd-word{font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;font-size:34px;font-weight:800;color:var(--navy);line-height:1.12}
+.wotd-mean{font-size:17px;color:var(--muted);line-height:1.45}
+.wotd-go{position:absolute;right:14px;bottom:10px;margin:0;font-weight:700;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--gold)}
 .wotd-card.flip .wotd-word,.wotd-card.flip .wotd-mean{animation:wotd-fade .5s ease}
 @keyframes wotd-fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @media(max-width:560px){.today-row{flex-direction:column}}

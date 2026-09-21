@@ -44,17 +44,25 @@
       <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
     </div>
 
-    <a class="today-card" id="todayCard" href="#" hidden>
-      <span class="today-k">Today's focus</span>
-      <span class="today-title" id="todayTitle"></span>
-      <span class="today-status" id="todayStatus"></span>
-      <span class="today-go" id="todayGo">Open &rarr;</span>
-    </a>
-
     <section class="ann-sec" id="annSec" hidden>
       <div class="section-title">Announcements</div>
       <div class="ann-list" id="annList"></div>
     </section>
+
+    <div class="today-row">
+      <a class="today-card" id="todayCard" href="#" hidden>
+        <span class="today-k">Today's focus</span>
+        <span class="today-title" id="todayTitle"></span>
+        <span class="today-go" id="todayGo">Open &rarr;</span>
+      </a>
+      <a class="wotd-card" id="wotdCard" href="#" target="_blank" rel="noopener" aria-label="Word of the Day">
+        <span class="wotd-k">Word of the Day</span>
+        <span class="wotd-word" id="wotdWord">&nbsp;</span>
+        <span class="wotd-mean" id="wotdMean"></span>
+        <span class="wotd-go" aria-hidden="true">Learn more &#8599;</span>
+      </a>
+    </div>
+
     <div class="tiles">
       <a class="tile" id="nav-lectures" href="#">
         <span class="tile-ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/></svg></span>
@@ -78,17 +86,6 @@
       <span class="today-status">See your strengths and the areas to focus on</span>
       <span class="today-go">Open &rarr;</span>
     </a>
-
-    <a class="vocab-marquee" id="vocabMarquee" href="#" target="_blank" rel="noopener" aria-label="Word of the Day">
-      <span class="vm-label">Word<br>of the Day</span>
-      <span class="vm-viewport"><span class="vm-track" id="vmTrack"></span></span>
-      <span class="vm-go" aria-hidden="true">&#8599;</span>
-    </a>
-
-    <section class="tools-sec" id="toolsSec">
-      <div class="section-title">More from VicThree</div>
-      <div class="tools-grid" id="toolsGrid"></div>
-    </section>
 
     <div class="quote-tile">
       <p class="quote-text" id="quoteText">&nbsp;</p>
@@ -207,6 +204,17 @@
 
 </main>
 
+<!-- More from VicThree: a slide-in sidebar opened from the right-edge tab. -->
+<button class="more-tab" id="moreBtn" aria-label="More from VicThree">More from VicThree</button>
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<aside class="drawer" id="moreDrawer" aria-hidden="true" aria-label="More from VicThree">
+  <div class="drawer-head">
+    <span class="drawer-title">More from VicThree</span>
+    <button class="drawer-close" id="drawerClose" aria-label="Close">&times;</button>
+  </div>
+  <div class="drawer-body" id="drawerTools"></div>
+</aside>
+
 <footer class="site-footer">VicThree Defence · Course</footer>
 
 <script src="assets/quotes.js"></script>
@@ -288,12 +296,11 @@
     sec.hidden = false;
   })();
 
-  // "More from VicThree" tiles.
+  // "More from VicThree" links, rendered into the slide-in sidebar.
   (function(){
-    var sec = document.getElementById("toolsSec"), grid = document.getElementById("toolsGrid");
-    if (!sec || !grid) return;
+    var grid = document.getElementById("drawerTools");
+    if (!grid) return;
     var tools = window.TOOLS || [];
-    if (!tools.length) { sec.hidden = true; return; }
     grid.innerHTML = "";
     tools.forEach(function(t){
       var a = document.createElement("a"); a.className = "tool-tile";
@@ -306,23 +313,37 @@
     });
   })();
 
-  // Word of the Day marquee — words slide across; the whole strip links to the
-  // full Word of the Day page. Cards are duplicated once for a seamless loop.
+  // The sidebar itself: open from the right-edge tab, close via the X, the backdrop or Esc.
   (function(){
-    var strip = document.getElementById("vocabMarquee"), track = document.getElementById("vmTrack");
-    if (!strip || !track) return;
+    var btn = document.getElementById("moreBtn"), drawer = document.getElementById("moreDrawer"),
+        ov = document.getElementById("drawerOverlay"), closeBtn = document.getElementById("drawerClose");
+    if (!btn || !drawer) return;
+    function open(){ drawer.classList.add("open"); drawer.setAttribute("aria-hidden","false"); if (ov) ov.classList.add("show"); }
+    function shut(){ drawer.classList.remove("open"); drawer.setAttribute("aria-hidden","true"); if (ov) ov.classList.remove("show"); }
+    btn.addEventListener("click", open);
+    if (closeBtn) closeBtn.addEventListener("click", shut);
+    if (ov) ov.addEventListener("click", shut);
+    document.addEventListener("keydown", function(e){ if (e.key === "Escape") shut(); });
+  })();
+
+  // Word of the Day — one word at a time in a white card; changes every 5 seconds;
+  // the card links to the full Word of the Day page.
+  (function(){
+    var card = document.getElementById("wotdCard"), wEl = document.getElementById("wotdWord"), mEl = document.getElementById("wotdMean");
+    if (!card || !wEl) return;
     var words = window.VOCAB_WORDS || [];
-    if (!words.length) { strip.style.display = "none"; return; }
-    if (window.WOTD_URL) strip.href = window.WOTD_URL;
-    function card(item){
-      var c = document.createElement("span"); c.className = "vm-card";
-      var w = document.createElement("span"); w.className = "vm-word"; w.textContent = item.w || "";
-      var m = document.createElement("span"); m.className = "vm-mean"; m.textContent = item.m || "";
-      c.appendChild(w); c.appendChild(m); return c;
+    if (!words.length) { card.style.display = "none"; return; }
+    if (window.WOTD_URL) card.href = window.WOTD_URL;
+    var i = Math.floor(Math.random() * words.length);
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    function show(){
+      var it = words[i % words.length];
+      wEl.textContent = it.w || "";
+      if (mEl) mEl.textContent = it.m || "";
+      card.classList.remove("flip"); void card.offsetWidth; card.classList.add("flip");
     }
-    track.innerHTML = "";
-    words.forEach(function(it){ track.appendChild(card(it)); });      // first set
-    words.forEach(function(it){ track.appendChild(card(it)); });      // duplicate for the loop
+    show();
+    if (!reduce) setInterval(function(){ i = (i + 1) % words.length; show(); }, 5000);
   })();
 
   // Full welcome message, typed out: "Welcome, <name>." + a random greeting line.
@@ -566,12 +587,11 @@
     if (avail.length) {
       var cur = avail[avail.length - 1];
       var cname = (window.TOPIC_NAMES && window.TOPIC_NAMES[cur.day]) || cur.title;
-      var w = isWatched(product, cur.day), st, go;
-      if (w) { st = "Completed. Revise it or take the test."; go = "Revisit &rarr;"; }
-      else if (cur.videoUnlocked) { st = "Your video is open. Watch today's lecture."; go = "Watch now &rarr;"; }
-      else { st = "Today's notes are ready. The video opens at 7 AM."; go = "Read notes &rarr;"; }
+      var w = isWatched(product, cur.day), go;
+      if (w) { go = "Revisit &rarr;"; }
+      else if (cur.videoUnlocked) { go = "Watch now &rarr;"; }
+      else { go = "Read notes &rarr;"; }
       document.getElementById("todayTitle").textContent = "Topic " + cur.day + ": " + cname;
-      document.getElementById("todayStatus").textContent = st;
       document.getElementById("todayGo").innerHTML = go;
       var tc = document.getElementById("todayCard");
       tc.setAttribute("href", "watch.html?day=" + cur.day);

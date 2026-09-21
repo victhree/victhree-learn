@@ -236,32 +236,42 @@ tbody tr:last-child td{border-bottom:none}
 .ann-item .ann-text{font-size:14px;color:#33435c;line-height:1.55}
 @media(max-width:460px){.ann-item{flex-direction:column;gap:4px}}
 
-/* ---- Word of the Day marquee ---- */
-.vocab-marquee{display:flex;align-items:stretch;gap:0;margin:6px 0 22px;text-decoration:none;
-  border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);
-  background:var(--navy);transition:box-shadow .18s ease,transform .12s ease}
-.vocab-marquee:hover{transform:translateY(-2px);box-shadow:0 0 0 2px rgba(201,162,75,.5),0 8px 22px rgba(11,31,58,.22)}
-.vm-label{flex:0 0 auto;display:flex;flex-direction:column;justify-content:center;padding:0 18px;
-  background:var(--gold);color:var(--navy);font-weight:800;font-size:13px;line-height:1.15;
-  letter-spacing:.5px;text-transform:uppercase}
-.vm-viewport{position:relative;flex:1 1 auto;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
-  mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
-.vm-track{display:flex;align-items:center;gap:34px;padding:14px 24px;width:max-content;
-  animation:vm-scroll 40s linear infinite}
-.vocab-marquee:hover .vm-track{animation-play-state:paused}
-.vm-card{display:flex;flex-direction:column;gap:2px;white-space:nowrap}
-.vm-word{color:var(--gold-soft);font-weight:800;font-size:15px;letter-spacing:.3px}
-.vm-mean{color:#c7d3e6;font-size:12.5px}
-.vm-go{flex:0 0 auto;display:flex;align-items:center;padding:0 16px;color:var(--gold);font-size:18px;font-weight:800}
-@keyframes vm-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-@media(prefers-reduced-motion:reduce){.vm-track{animation:none}}
-@media(max-width:460px){.vm-label{font-size:11px;padding:0 12px}.vm-go{padding:0 10px}}
+/* ---- Today's focus + Word of the Day, side by side ---- */
+.today-row{display:flex;gap:16px;margin:0 0 16px;align-items:stretch}
+.today-row .today-card{flex:1 1 0;margin:0}
+.wotd-card{flex:1 1 0;display:flex;flex-direction:column;gap:6px;justify-content:center;
+  background:var(--white);border:1px solid var(--line);border-left:5px solid var(--gold);
+  border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 20px;text-decoration:none;
+  transition:transform .1s ease,box-shadow .15s ease}
+.wotd-card:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(11,31,58,.2)}
+.wotd-k{font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--gold)}
+.wotd-word{font-family:"Cinzel",Georgia,serif;font-size:26px;font-weight:800;color:var(--navy);line-height:1.15}
+.wotd-mean{font-size:14px;color:var(--muted);line-height:1.4}
+.wotd-go{margin-top:4px;font-weight:800;font-size:12px;letter-spacing:.03em;text-transform:uppercase;color:var(--gold)}
+.wotd-card.flip .wotd-word,.wotd-card.flip .wotd-mean{animation:wotd-fade .5s ease}
+@keyframes wotd-fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media(max-width:560px){.today-row{flex-direction:column}}
 
-/* ---- More from VicThree ---- */
-.tools-sec{margin:6px 0 22px}
-.tools-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-@media(max-width:700px){.tools-grid{grid-template-columns:1fr 1fr}}
-@media(max-width:460px){.tools-grid{grid-template-columns:1fr}}
+/* ---- More from VicThree: right-edge tab + slide-in sidebar ---- */
+.more-tab{position:fixed;top:50%;right:0;transform:translateY(-50%);z-index:40;
+  writing-mode:vertical-rl;background:var(--gold);color:var(--navy);font-weight:800;font-size:13px;
+  letter-spacing:.6px;border:none;padding:16px 9px;border-radius:12px 0 0 12px;cursor:pointer;
+  box-shadow:-3px 2px 12px rgba(6,17,38,.28)}
+.more-tab:hover{filter:brightness(1.05)}
+.drawer-overlay{position:fixed;inset:0;background:rgba(6,17,38,.5);z-index:50;opacity:0;visibility:hidden;
+  transition:opacity .2s ease,visibility .2s ease}
+.drawer-overlay.show{opacity:1;visibility:visible}
+.drawer{position:fixed;top:0;right:0;height:100%;width:min(360px,86vw);background:var(--paper);z-index:60;
+  box-shadow:-8px 0 30px rgba(6,17,38,.28);transform:translateX(100%);transition:transform .25s ease;
+  display:flex;flex-direction:column;overflow-y:auto}
+.drawer.open{transform:translateX(0)}
+.drawer-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;
+  background:var(--navy);position:sticky;top:0}
+.drawer-title{color:#fff;font-weight:800;letter-spacing:.4px;font-size:16px}
+.drawer-close{background:none;border:none;color:#fff;font-size:26px;line-height:1;cursor:pointer;padding:0 4px}
+.drawer-body{padding:16px;display:flex;flex-direction:column;gap:12px}
+
+/* ---- tool tiles (used inside the sidebar) ---- */
 .tool-tile{position:relative;display:flex;flex-direction:column;gap:5px;background:var(--white);
   border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px;
   text-decoration:none;transition:transform .12s ease,box-shadow .18s ease}

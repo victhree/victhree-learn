@@ -108,6 +108,20 @@ window.SSB_MODE_NAMES = {
 };
 function ssbModeName(m){ return (window.SSB_MODE_NAMES && window.SSB_MODE_NAMES[m]) || String(m || ""); }
 function fmtDate(ms){ try { return new Date(ms).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }); } catch { return ""; } }
+
+/* Desktop calendar: mark scheduled days. Fill this when the course schedule is
+   ready, as "YYYY-MM-DD": "what happens that day" (hover shows the label). */
+window.SCHEDULE = {
+  // "2026-09-25": "Live doubt class, 7 PM",
+};
+
+/* Desktop right-rail "Mock test sessions": upcoming sessions (date + title).
+   Edit freely; past dates drop off automatically. */
+window.MOCK_SESSIONS = [
+  { date: "2026-09-27", title: "Geography sectional mock" },
+  { date: "2026-10-04", title: "Full GS mock 1" },
+  { date: "2026-10-11", title: "Current affairs mock" }
+];
 function daysUntil(dateStr){ return Math.ceil((new Date(dateStr + "T00:00:00") - new Date()) / 86400000); }
 function nextExam(){
   return (window.EXAMS || [])

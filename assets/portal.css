@@ -198,7 +198,7 @@ tbody tr:last-child td{border-bottom:none}
 
 /* ---- dashboard hub: quote tile ---- */
 .quote-tile{position:relative;overflow:hidden;text-align:center;border-radius:var(--radius);border:2px solid var(--gold);
-  margin:260px 0 16px;padding:28px 22px;background:#3d3c24 url("camo.png") center/cover no-repeat}
+  margin:26px 0 16px;padding:28px 22px;background:#3d3c24 url("camo.png") center/cover no-repeat}
 .quote-tile::before{content:"";position:absolute;inset:0;background:rgba(14,20,10,.55)}
 .quote-text{position:relative;z-index:1;margin:0;color:#fff;font-family:"Cinzel",Georgia,serif;
   font-size:18px;font-weight:700;line-height:1.6;letter-spacing:.4px;text-shadow:0 1px 5px rgba(0,0,0,.7)}
@@ -336,10 +336,10 @@ tbody tr:last-child td{border-bottom:none}
 /* ---- footer ---- */
 .site-footer{text-align:center;color:var(--muted);font-size:12.5px;padding:18px}
 
-/* ---- More from VicThree as a bottom bar (phones only) ---- */
+/* ---- More from VicThree as a bottom bar (phones + tablets) ---- */
 .bottom-bar{display:none}
-@media(max-width:700px){
-  .more-tab{display:none}                 /* hide the sidebar menu icon on phones */
+.more-tab{display:none}                   /* legacy hamburger no longer used */
+@media(max-width:900px){
   .bottom-bar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:45;justify-content:space-around;align-items:stretch;
     background:var(--white);border-top:1px solid var(--line);box-shadow:0 -6px 22px rgba(6,17,38,.12);
     padding:9px 6px calc(9px + env(safe-area-inset-bottom))}
@@ -359,3 +359,66 @@ tbody tr:last-child td{border-bottom:none}
   .tile .tile-sub{display:none}
 }
 @media(max-width:460px){.tiles{grid-template-columns:1fr 1fr}}  /* keep 2 across on small phones */
+
+/* ============================================================================
+   DESKTOP SHELL (>= 901px): fixed left sidebar, two-column home with a right rail
+   (calendar + mock sessions). The phone/tablet layout above is untouched.
+   ============================================================================ */
+.side-nav{display:none}
+.home-rail{display:none}                 /* rail is desktop-only */
+
+@media(min-width:901px){
+  .site-header{display:none}             /* logo lives in the sidebar on desktop */
+  .bottom-bar{display:none}
+  body{padding-left:238px}
+  .wrap{max-width:1140px;padding-top:30px;padding-bottom:40px}
+
+  .side-nav{display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;width:238px;z-index:30;
+    background:linear-gradient(180deg,#0B1F3A,#122c52);color:#fff;padding:22px 16px}
+  .sn-brand{display:flex;align-items:center;gap:10px;color:#fff;text-decoration:none;
+    font-family:"Cinzel",Georgia,serif;font-weight:700;font-size:20px;letter-spacing:.5px;padding:2px 8px 20px}
+  .sn-brand img{width:30px;height:30px}
+  .sn-links{display:flex;flex-direction:column;gap:4px}
+  .sn-link{display:flex;align-items:center;gap:12px;color:rgba(255,255,255,.82);text-decoration:none;
+    padding:11px 12px;border-radius:12px;font-weight:600;font-size:14.5px;transition:background .15s ease,color .15s ease}
+  .sn-link:hover{background:rgba(255,255,255,.09);color:#fff}
+  .sn-link.active{background:var(--gold);color:var(--navy)}
+  .sn-link .sn-ic{width:20px;height:20px;display:flex;flex:0 0 auto}
+  .sn-link .sn-ic svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .sn-tools{margin-top:22px;border-top:1px solid rgba(255,255,255,.14);padding-top:16px}
+  .sn-cap{font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--gold-soft);padding:0 12px 8px}
+  .sn-tool-list{display:flex;flex-direction:column}
+  .sn-tool{color:rgba(255,255,255,.78);text-decoration:none;padding:8px 12px;border-radius:10px;font-size:13.5px}
+  .sn-tool:hover{background:rgba(255,255,255,.09);color:#fff}
+  .sn-logout{margin-top:auto;color:var(--gold);text-decoration:none;padding:11px 12px;border-radius:12px;
+    font-weight:700;font-size:13.5px;letter-spacing:.4px;text-transform:uppercase;text-align:center;border:1px solid rgba(201,162,75,.45)}
+  .sn-logout:hover{background:rgba(201,162,75,.15)}
+
+  /* home becomes middle content + right rail */
+  .home-grid{display:grid;grid-template-columns:1fr 320px;gap:28px;align-items:start}
+  .home-rail{display:block;position:sticky;top:30px}
+  #v-home .tiles{display:none}           /* nav is in the sidebar now */
+  .duo-tile{min-height:132px}
+
+  /* right-rail cards */
+  .cal-card,.mock-card{background:var(--white);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:18px}
+  .cal-card{margin-bottom:20px}
+  .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .cal-title{font-weight:800;color:var(--navy);font-size:15px}
+  .cal-nav button{background:#eef1f6;border:none;width:28px;height:28px;border-radius:8px;cursor:pointer;color:var(--navy);font-size:16px;line-height:1;margin-left:6px}
+  .cal-nav button:hover{background:#e0e6f0}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center}
+  .cal-dow{font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;padding:4px 0}
+  .cal-cell{font-size:12.5px;color:var(--navy);padding:7px 0;border-radius:8px;position:relative}
+  .cal-cell.empty{visibility:hidden}
+  .cal-cell.today{background:var(--navy);color:#fff;font-weight:800}
+  .cal-cell.has-event{color:var(--gold);font-weight:800;cursor:default}
+  .cal-cell.has-event::after{content:"";position:absolute;left:50%;bottom:3px;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--gold)}
+  .rail-title{font-size:13px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--gold);margin-bottom:14px}
+  .mock-list{display:flex;flex-direction:column;gap:13px}
+  .mock-item{display:flex;align-items:center;gap:12px}
+  .mock-date{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;width:46px;height:46px;background:#eef1f6;border-radius:12px}
+  .md-day{font-size:16px;font-weight:800;color:var(--navy);line-height:1}
+  .md-mon{font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-top:1px}
+  .mock-title{font-size:14px;color:var(--navy);font-weight:600;line-height:1.35}
+}

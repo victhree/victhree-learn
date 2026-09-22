@@ -15,6 +15,23 @@
 </head>
 <body>
 
+<!-- Desktop-only left navigation (hidden on phones/tablets). -->
+<aside class="side-nav" aria-label="Main navigation">
+  <a class="sn-brand" href="#home"><img src="assets/shield-32.png" alt=""><span>VicThree</span></a>
+  <nav class="sn-links">
+    <a class="sn-link" data-route="home" href="#home"><span class="sn-ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>Dashboard</a>
+    <a class="sn-link" data-route="lectures" href="#lectures"><span class="sn-ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/></svg></span>Lectures</a>
+    <a class="sn-link" data-route="notes" href="#notes"><span class="sn-ic"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 16h4"/></svg></span>Notes</a>
+    <a class="sn-link" data-route="current-affairs" href="#current-affairs"><span class="sn-ic"><svg viewBox="0 0 24 24"><path d="M4 5h13v14H4z"/><path d="M17 8h3v9a2 2 0 0 1-2 2h-1z"/><path d="M7 8h7M7 11h7M7 14h5"/></svg></span>Current Affairs</a>
+    <a class="sn-link" data-route="ssb" href="#ssb"><span class="sn-ic"><svg viewBox="0 0 24 24"><path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7z"/><path d="M9 12l2 2 4-4"/></svg></span>SSB Progress</a>
+  </nav>
+  <div class="sn-tools">
+    <div class="sn-cap">More from VicThree</div>
+    <div class="sn-tool-list" id="sideTools"></div>
+  </div>
+  <a class="sn-logout" id="logout2" href="#">Log out</a>
+</aside>
+
 <header class="site-header">
   <div class="banner-wrap">
     <a href="dashboard.html" class="banner-link" aria-label="VicThree Defence"><img src="assets/banner.jpg" alt="VicThree Defence — by Anmol Sharma"></a>
@@ -26,6 +43,8 @@
 
   <!-- ===== HOME ===== -->
   <section id="v-home">
+   <div class="home-grid">
+    <div class="home-mid">
     <div class="dash-head"><h1 class="greeting">
       <span class="g-l1"><span id="typedName"></span></span>
       <span class="g-l2"><span id="typedGreet"></span><span class="caret" id="caret" aria-hidden="true">|</span></span>
@@ -93,6 +112,22 @@
     <section class="exam-band" id="examBand" hidden>
       <div class="exam-timers" id="examTimers"></div>
     </section>
+    </div><!-- /home-mid -->
+
+    <aside class="home-rail">
+      <div class="cal-card">
+        <div class="cal-head">
+          <span class="cal-title" id="calTitle">Month</span>
+          <span class="cal-nav"><button id="calPrev" aria-label="Previous month">&#8249;</button><button id="calNext" aria-label="Next month">&#8250;</button></span>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+      </div>
+      <div class="mock-card">
+        <div class="rail-title">Mock test sessions</div>
+        <div class="mock-list" id="mockList"></div>
+      </div>
+    </aside>
+   </div><!-- /home-grid -->
   </section>
 
   <!-- ===== LECTURES / SUBJECTS ===== -->
@@ -327,6 +362,73 @@
     });
   })();
 
+  // Desktop sidebar: the same tools as simple links.
+  (function(){
+    var host = document.getElementById("sideTools");
+    if (!host) return;
+    (window.TOOLS || []).forEach(function(t){
+      var a = document.createElement("a"); a.className = "sn-tool";
+      a.href = t.handoff ? ssbHandoff(t.url) : (t.url || "#"); a.target = "_blank"; a.rel = "noopener";
+      a.textContent = t.name || "";
+      host.appendChild(a);
+    });
+    var lo = document.getElementById("logout2");
+    if (lo) lo.addEventListener("click", function(e){ e.preventDefault(); logout(); });
+  })();
+
+  // Desktop right rail: a month calendar (course schedule dropped in via SCHEDULE).
+  (function(){
+    var grid = document.getElementById("calGrid"), title = document.getElementById("calTitle");
+    if (!grid || !title) return;
+    var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    var DOW = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+    var today = new Date();
+    var shown = new Date(today.getFullYear(), today.getMonth(), 1);
+    function iso(y,m,d){ return y + "-" + String(m+1).padStart(2,"0") + "-" + String(d).padStart(2,"0"); }
+    function render(){
+      title.textContent = MONTHS[shown.getMonth()] + " " + shown.getFullYear();
+      grid.innerHTML = "";
+      DOW.forEach(function(d){ var e = document.createElement("span"); e.className = "cal-dow"; e.textContent = d; grid.appendChild(e); });
+      var y = shown.getFullYear(), mo = shown.getMonth();
+      var startDow = (new Date(y, mo, 1).getDay() + 6) % 7;   // Monday-first
+      var days = new Date(y, mo + 1, 0).getDate();
+      for (var i = 0; i < startDow; i++) { var b = document.createElement("span"); b.className = "cal-cell empty"; grid.appendChild(b); }
+      for (var d = 1; d <= days; d++) {
+        var cell = document.createElement("span"); cell.className = "cal-cell"; cell.textContent = d;
+        if (d === today.getDate() && mo === today.getMonth() && y === today.getFullYear()) cell.classList.add("today");
+        var key = iso(y, mo, d);
+        if (window.SCHEDULE && window.SCHEDULE[key]) { cell.classList.add("has-event"); cell.title = window.SCHEDULE[key]; }
+        grid.appendChild(cell);
+      }
+    }
+    render();
+    var prev = document.getElementById("calPrev"), next = document.getElementById("calNext");
+    if (prev) prev.addEventListener("click", function(){ shown.setMonth(shown.getMonth() - 1); render(); });
+    if (next) next.addEventListener("click", function(){ shown.setMonth(shown.getMonth() + 1); render(); });
+  })();
+
+  // Desktop right rail: upcoming mock-test sessions (past dates drop off).
+  (function(){
+    var list = document.getElementById("mockList");
+    if (!list) return;
+    var todayKey = new Date(Date.now() + 330*60000).toISOString().slice(0,10);
+    var items = (window.MOCK_SESSIONS || []).slice()
+      .filter(function(m){ return String(m.date) >= todayKey; })
+      .sort(function(a,b){ return String(a.date).localeCompare(String(b.date)); });
+    if (!items.length) { list.innerHTML = '<p class="muted" style="font-size:13px;margin:0">No sessions scheduled yet.</p>'; return; }
+    list.innerHTML = "";
+    items.forEach(function(m){
+      var row = document.createElement("div"); row.className = "mock-item";
+      var d = new Date(m.date + "T00:00:00");
+      var dt = document.createElement("span"); dt.className = "mock-date";
+      dt.innerHTML = '<span class="md-day"></span><span class="md-mon"></span>';
+      dt.querySelector(".md-day").textContent = d.getDate();
+      dt.querySelector(".md-mon").textContent = d.toLocaleDateString("en-IN", { month: "short" });
+      var ti = document.createElement("span"); ti.className = "mock-title"; ti.textContent = m.title || "";
+      row.appendChild(dt); row.appendChild(ti); list.appendChild(row);
+    });
+  })();
+
   // The same tools as a bottom bar on phones (icon + short label per tool).
   (function(){
     var bar = document.getElementById("bottomBar");
@@ -417,6 +519,14 @@
     if (view === "v-ca") loadCA();
     if (view === "v-ssb") loadSsb();
     showView(view);
+    setActiveNav(view);
+  }
+  function setActiveNav(view){
+    var map = { "v-home":"home", "v-lectures":"lectures", "v-geography":"lectures", "v-notes":"notes", "v-ca":"current-affairs", "v-ssb":"ssb" };
+    var route = map[view] || "home";
+    Array.prototype.forEach.call(document.querySelectorAll(".sn-link"), function(a){
+      a.classList.toggle("active", a.getAttribute("data-route") === route);
+    });
   }
   window.addEventListener("hashchange", renderRoute);
 

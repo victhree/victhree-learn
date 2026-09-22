@@ -21,8 +21,9 @@ h1,h2,h3{color:var(--navy);margin:0 0 .4em;line-height:1.15}
 
 /* ---- header / banner ---- */
 .site-header{background:#02224b;border-bottom:3px solid var(--gold)} /* matches the banner image's blue */
-.banner-wrap{max-width:none;margin:0 auto;position:relative}  /* full width: only the banner's blue shows, no seam */
-.banner-wrap img{display:block;width:100%;height:auto}
+.banner-wrap{max-width:none;margin:0 auto;position:relative;text-align:center}  /* compact logo on the banner blue */
+.banner-wrap img{display:inline-block;height:58px;width:auto;max-width:94%;margin:0 auto;padding:8px 0}
+@media(max-width:560px){.banner-wrap img{height:44px;padding:7px 0}}
 .banner-link{display:block;cursor:pointer}
 .hdr-action{position:absolute;bottom:10px;right:12px;z-index:2;
   font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
@@ -236,21 +237,43 @@ tbody tr:last-child td{border-bottom:none}
 .ann-item .ann-text{font-size:14px;color:#33435c;line-height:1.55}
 @media(max-width:460px){.ann-item{flex-direction:column;gap:4px}}
 
-/* ---- Today's focus + Word of the Day, side by side ---- */
-.today-row{display:flex;gap:16px;margin:0 0 16px;align-items:stretch}
-.today-row .today-card{flex:1 1 0;margin:0}
-.wotd-card{position:relative;flex:1 1 0;display:flex;flex-direction:column;gap:8px;justify-content:center;
-  background:var(--white);border:1px solid var(--line);border-left:5px solid var(--gold);
-  border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 22px 30px;text-decoration:none;
-  transition:transform .1s ease,box-shadow .15s ease}
-.wotd-card:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(11,31,58,.2)}
-.wotd-k{font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--gold)}
-.wotd-word{font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;font-size:34px;font-weight:800;color:var(--navy);line-height:1.12}
-.wotd-mean{font-size:17px;color:var(--muted);line-height:1.45}
-.wotd-go{position:absolute;right:14px;bottom:10px;margin:0;font-weight:700;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--gold)}
-.wotd-card.flip .wotd-word,.wotd-card.flip .wotd-mean{animation:wotd-fade .5s ease}
+/* ---- minimalist progress + streak (no card background) ---- */
+.prog-row{display:flex;align-items:center;gap:12px;margin:4px 0 18px}
+.prog-row .progress-track{flex:1 1 auto;height:8px;background:#e6ebf3;border-radius:999px;overflow:hidden}
+.prog-row .progress-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-soft));border-radius:999px;transition:width .5s ease}
+.prog-row .progress-pct{font-size:13px;font-weight:800;color:var(--navy);min-width:34px;text-align:right}
+.streak-inline{display:inline-flex;align-items:center;gap:5px}
+.streak-inline .sc-flame{font-size:18px;line-height:1}
+.streak-inline .sc-num{font-size:16px;font-weight:800;color:var(--navy)}
+
+/* ---- Today's Video + Vocab of the Day (two-tile card) ---- */
+.duo-card{display:flex;gap:12px;background:var(--white);border:1px solid var(--line);
+  border-radius:18px;box-shadow:var(--shadow);padding:14px;margin:0 0 16px}
+.duo-tile{position:relative;flex:1 1 0;display:flex;flex-direction:column;gap:6px;
+  border-radius:14px;padding:15px 16px 28px;text-decoration:none;min-height:118px}
+.duo-tile.today{background:#eef1fb}
+.duo-tile.vocab{background:#e9f5ee}
+.duo-tile:hover{filter:brightness(.985)}
+.duo-k{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--navy);opacity:.65}
+.duo-title{font-size:18px;font-weight:800;color:var(--navy);line-height:1.2}
+.duo-sub{font-size:13px;color:var(--muted);line-height:1.4}
+.duo-go{position:absolute;right:13px;bottom:10px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--gold)}
+.duo-tile .wotd-word{font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;font-size:24px;font-weight:800;color:var(--navy);line-height:1.15}
+.duo-tile .wotd-mean{font-size:13px;color:var(--muted);line-height:1.4}
+.duo-tile.flip .wotd-word,.duo-tile.flip .wotd-mean{animation:wotd-fade .5s ease}
 @keyframes wotd-fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-@media(max-width:560px){.today-row{flex-direction:column}}
+@media(max-width:560px){.duo-card{padding:12px;gap:10px}.duo-tile{padding:13px 13px 26px;min-height:104px}.duo-title{font-size:16px}.duo-tile .wotd-word{font-size:21px}}
+
+/* ---- announcements: collapsible bar ---- */
+.ann-collapse{margin:0 0 16px;border:1px solid var(--line);border-radius:14px;background:var(--white);box-shadow:var(--shadow);overflow:hidden}
+.ann-toggle{width:100%;display:flex;align-items:center;gap:10px;background:none;border:none;cursor:pointer;padding:14px 16px;font:inherit;text-align:left;color:var(--navy)}
+.ann-bell{position:relative;font-size:18px;line-height:1}
+.ann-badge{position:absolute;top:-6px;right:-8px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--red);color:#fff;font-size:10px;font-weight:800;line-height:16px;text-align:center}
+.ann-toggle-label{flex:1;font-weight:800;letter-spacing:.2px}
+.ann-caret{color:var(--muted);transition:transform .2s ease}
+.ann-collapse.open .ann-caret{transform:rotate(180deg)}
+.ann-panel{padding:2px 16px 14px}
+.ann-panel .ann-item{box-shadow:none}
 
 /* ---- More from VicThree: left-edge menu icon + slide-in sidebar ---- */
 .more-tab{position:fixed;top:50%;left:0;transform:translateY(-50%);z-index:40;
@@ -310,3 +333,23 @@ tbody tr:last-child td{border-bottom:none}
 
 /* ---- footer ---- */
 .site-footer{text-align:center;color:var(--muted);font-size:12.5px;padding:18px}
+
+/* ---- More from VicThree as a bottom bar (phones only) ---- */
+.bottom-bar{display:none}
+@media(max-width:700px){
+  .more-tab{display:none}                 /* hide the sidebar menu icon on phones */
+  .bottom-bar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:45;justify-content:space-around;
+    background:var(--white);border-top:1px solid var(--line);box-shadow:0 -4px 18px rgba(6,17,38,.10);
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+  .bb-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;text-decoration:none;padding:4px 2px;color:var(--navy)}
+  .bb-ic svg{width:22px;height:22px;color:var(--navy)}
+  .bb-label{font-size:10px;font-weight:700;color:var(--muted)}
+  body{padding-bottom:74px}               /* room so the footer clears the bar */
+  /* compact nav tiles: 2 across, icon + title only */
+  .tiles{grid-template-columns:1fr 1fr;gap:12px}
+  .tile{min-height:auto;padding:16px 12px;gap:7px}
+  .tile .tile-ic{width:30px;height:30px}
+  .tile .tile-title{font-size:15px}
+  .tile .tile-sub{display:none}
+}
+@media(max-width:460px){.tiles{grid-template-columns:1fr 1fr}}  /* keep 2 across on small phones */

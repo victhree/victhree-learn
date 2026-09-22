@@ -26,41 +26,40 @@
 
   <!-- ===== HOME ===== -->
   <section id="v-home">
-    <div class="home-top">
-      <div class="dash-head"><h1 class="greeting">
-        <span class="g-l1"><span id="typedName"></span></span>
-        <span class="g-l2"><span id="typedGreet"></span><span class="caret" id="caret" aria-hidden="true">|</span></span>
-      </h1></div>
-      <div class="streak-chip">
-        <span class="sc-flame" aria-hidden="true">&#128293;</span>
-        <span class="sc-label">Study streak</span>
-        <span class="sc-num" id="streakNum">1</span>
-        <span class="sc-sub" id="streakSub">day</span>
-      </div>
-    </div>
+    <div class="dash-head"><h1 class="greeting">
+      <span class="g-l1"><span id="typedName"></span></span>
+      <span class="g-l2"><span id="typedGreet"></span><span class="caret" id="caret" aria-hidden="true">|</span></span>
+    </h1></div>
 
-    <div class="progress-card" id="progressCard" hidden>
-      <div class="progress-top"><span class="progress-label">Course progress</span><span class="progress-pct" id="progPct">0%</span></div>
+    <div class="prog-row" id="progRow" hidden>
       <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
+      <span class="progress-pct" id="progPct">0%</span>
+      <span class="streak-inline" title="Study streak"><span class="sc-flame" aria-hidden="true">&#128293;</span><span class="sc-num" id="streakNum">1</span></span>
     </div>
 
-    <section class="ann-sec" id="annSec" hidden>
-      <div class="section-title">Announcements</div>
-      <div class="ann-list" id="annList"></div>
-    </section>
+    <div class="duo-card">
+      <a class="duo-tile today" id="todayCard" href="#">
+        <span class="duo-k">Today's Video</span>
+        <span class="duo-title" id="todayTitle">Opens soon</span>
+        <span class="duo-go" id="todayGo">Open &rarr;</span>
+      </a>
+      <a class="duo-tile vocab" id="wotdCard" href="#" target="_blank" rel="noopener" aria-label="Vocab of the Day">
+        <span class="duo-k">Vocab of the Day</span>
+        <span class="duo-title wotd-word" id="wotdWord">&nbsp;</span>
+        <span class="duo-sub wotd-mean" id="wotdMean"></span>
+        <span class="duo-go" aria-hidden="true">Learn more &#8599;</span>
+      </a>
+    </div>
 
-    <div class="today-row">
-      <a class="today-card" id="todayCard" href="#" hidden>
-        <span class="today-k">Today's focus</span>
-        <span class="today-title" id="todayTitle"></span>
-        <span class="today-go" id="todayGo">Open &rarr;</span>
-      </a>
-      <a class="wotd-card" id="wotdCard" href="#" target="_blank" rel="noopener" aria-label="Word of the Day">
-        <span class="wotd-k">Vocab of the Day</span>
-        <span class="wotd-word" id="wotdWord">&nbsp;</span>
-        <span class="wotd-mean" id="wotdMean"></span>
-        <span class="wotd-go" aria-hidden="true">Learn more &#8599;</span>
-      </a>
+    <div class="ann-collapse" id="annCollapse" hidden>
+      <button class="ann-toggle" id="annToggle" aria-expanded="false">
+        <span class="ann-bell" aria-hidden="true">&#128276;<span class="ann-badge" id="annBadge" hidden></span></span>
+        <span class="ann-toggle-label">Announcements</span>
+        <span class="ann-caret" id="annCaret" aria-hidden="true">&#9662;</span>
+      </button>
+      <div class="ann-panel" id="annPanelWrap" hidden>
+        <div class="ann-list" id="annList"></div>
+      </div>
     </div>
 
     <div class="tiles">
@@ -79,13 +78,12 @@
         <span class="tile-title">Current Affairs</span>
         <span class="tile-sub">Monthly updates</span>
       </a>
+      <a class="tile" id="nav-ssb" href="#">
+        <span class="tile-ic"><svg viewBox="0 0 24 24"><path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7z"/><path d="M9 12l2 2 4-4"/></svg></span>
+        <span class="tile-title">SSB Progress</span>
+        <span class="tile-sub">Your strengths &amp; focus</span>
+      </a>
     </div>
-    <a class="today-card ssb-entry" id="ssbEntry" href="#">
-      <span class="today-k">SSB practice</span>
-      <span class="today-title">Your SSB progress</span>
-      <span class="today-status">See your strengths and the areas to focus on</span>
-      <span class="today-go">Open &rarr;</span>
-    </a>
 
     <div class="quote-tile">
       <p class="quote-text" id="quoteText">&nbsp;</p>
@@ -217,6 +215,9 @@
   <div class="drawer-body" id="drawerTools"></div>
 </aside>
 
+<!-- More from VicThree, as a bottom bar on phones (icons rendered from TOOLS). -->
+<nav class="bottom-bar" id="bottomBar" aria-label="More from VicThree"></nav>
+
 <footer class="site-footer">VicThree Defence · Course</footer>
 
 <script src="assets/quotes.js"></script>
@@ -246,7 +247,6 @@
   }
   (function(){
     var streak = bumpStreak();
-    document.getElementById("streakSub").textContent = streak === 1 ? "day" : "days";
     animateCount(document.getElementById("streakNum"), streak);
   })();
 
@@ -273,10 +273,13 @@
     band.hidden = false;
   })();
 
-  // Announcements — newest first; hidden entirely when there are none.
+  // Announcements — collapsed by default; a bell with a count appears only when
+  // there is something. Clicking the bar expands the list.
   (function(){
-    var sec = document.getElementById("annSec"), list = document.getElementById("annList");
-    if (!sec || !list) return;
+    var wrap = document.getElementById("annCollapse"), list = document.getElementById("annList"),
+        toggle = document.getElementById("annToggle"), panel = document.getElementById("annPanelWrap"),
+        badge = document.getElementById("annBadge");
+    if (!wrap || !list) return;
     var items = (window.ANNOUNCEMENTS || []).slice().sort(function(a,b){
       return String(b.date||"").localeCompare(String(a.date||""));
     });
@@ -295,7 +298,16 @@
       row.appendChild(body);
       list.appendChild(row);
     });
-    sec.hidden = false;
+    if (badge) { badge.textContent = items.length; badge.hidden = false; }
+    wrap.hidden = false;
+    if (toggle && panel) {
+      toggle.addEventListener("click", function(){
+        var willOpen = panel.hidden;
+        panel.hidden = !willOpen;
+        toggle.setAttribute("aria-expanded", willOpen ? "true" : "false");
+        wrap.classList.toggle("open", willOpen);
+      });
+    }
   })();
 
   // "More from VicThree" links, rendered into the slide-in sidebar.
@@ -312,6 +324,22 @@
       var go = document.createElement("span"); go.className = "tool-go"; go.setAttribute("aria-hidden","true"); go.innerHTML = "&#8599;";
       a.appendChild(nm); a.appendChild(sub); a.appendChild(go);
       grid.appendChild(a);
+    });
+  })();
+
+  // The same tools as a bottom bar on phones (icon + short label per tool).
+  (function(){
+    var bar = document.getElementById("bottomBar");
+    if (!bar) return;
+    var tools = window.TOOLS || [];
+    bar.innerHTML = "";
+    tools.forEach(function(t){
+      var a = document.createElement("a"); a.className = "bb-item";
+      a.href = t.handoff ? ssbHandoff(t.url) : (t.url || "#"); a.target = "_blank"; a.rel = "noopener";
+      a.innerHTML = '<span class="bb-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+        (t.ic || "") + '</svg></span><span class="bb-label"></span>';
+      a.querySelector(".bb-label").textContent = t.short || t.name || "";
+      bar.appendChild(a);
     });
   })();
 
@@ -398,7 +426,7 @@
   on("nav-geography", function(){ go("geography"); });
   on("nav-notes", function(){ go("notes"); });
   on("nav-currentaffairs", function(){ go("current-affairs"); });
-  on("ssbEntry", function(){ go("ssb"); });
+  on("nav-ssb", function(){ go("ssb"); });
   on("back-home", function(){ history.back(); });
   on("back-lectures", function(){ history.back(); });
   on("back-empty", function(){ history.back(); });
@@ -582,7 +610,7 @@
     var pct = total ? Math.round(done / total * 100) : 0;
     document.getElementById("progPct").textContent = pct + "%";
     document.getElementById("progFill").style.width = pct + "%";
-    document.getElementById("progressCard").hidden = false;
+    document.getElementById("progRow").hidden = false;
 
     // ----- today's focus card -----
     var avail = r.data.lessons.filter(function(l){ return l.available; });

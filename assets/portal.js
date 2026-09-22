@@ -71,11 +71,16 @@ window.VOCAB_WORDS = [
 // tile appends the login token in the URL fragment so the SSB site recognises
 // the signed-in course student and tracks their performance.
 window.TOOLS = [
-  { name: "Vocabulary",      sub: "Synonyms, antonyms, idioms, quizzes", url: "https://vocab.victhreedefence.com/" },
-  { name: "PYQ Library",     sub: "CDS past papers, quizzable",          url: "https://pyq.victhreedefence.com/" },
-  { name: "Mock Tests",      sub: "Full & sectional mocks",              url: "https://victhree.github.io/victhree-mocks/" },
-  { name: "SSB Interview",   sub: "Personal interview trainer",          url: "https://interview.victhreedefence.com/", handoff: true },
-  { name: "SSB Psych & GTO", sub: "WAT, SRT, group tasks",               url: "https://ssb.victhreedefence.com/",       handoff: true }
+  { name: "Vocabulary",      short: "Vocab",     sub: "Synonyms, antonyms, idioms, quizzes", url: "https://vocab.victhreedefence.com/",
+    ic: '<path d="M5 4h11a1 1 0 0 1 1 1v15H7a2 2 0 0 0-2 2z"/><path d="M17 4v16"/>' },
+  { name: "PYQ Library",     short: "PYQ",       sub: "CDS past papers, quizzable",          url: "https://pyq.victhreedefence.com/",
+    ic: '<path d="M8 4h8l4 4v12H8z"/><path d="M4 8v12h11"/><path d="M11 12h6M11 16h4"/>' },
+  { name: "Mock Tests",      short: "Mocks",     sub: "Full & sectional mocks",              url: "https://victhree.github.io/victhree-mocks/",
+    ic: '<path d="M9 4h6v3H9z"/><path d="M7 5h10v15H7z"/><path d="M9.5 13l2 2 3.5-4"/>' },
+  { name: "SSB Interview",   short: "Interview", sub: "Personal interview trainer",          url: "https://interview.victhreedefence.com/", handoff: true,
+    ic: '<circle cx="12" cy="8" r="4"/><path d="M5 20a7 7 0 0 1 14 0"/>' },
+  { name: "SSB Psych & GTO", short: "SSB",       sub: "WAT, SRT, group tasks",               url: "https://ssb.victhreedefence.com/",       handoff: true,
+    ic: '<circle cx="9" cy="9" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 7.2a3.2 3.2 0 0 1 0 6.2M18.5 19a5.5 5.5 0 0 0-3-4.9"/>' }
 ];
 
 // Append the login token to an SSB link so the signed-in student is recognised there.

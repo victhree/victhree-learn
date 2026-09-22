@@ -370,10 +370,10 @@ tbody tr:last-child td{border-bottom:none}
 .home-rail{display:none}                 /* rail is desktop-only */
 
 @media(min-width:901px){
-  .site-header{display:none}             /* logo lives in the sidebar on desktop */
   .bottom-bar{display:none}
-  body{padding-left:238px}
-  .wrap{max-width:1140px;padding-top:30px;padding-bottom:40px}
+  body.has-sidenav .site-header{display:none}   /* logo lives in the sidebar on the dashboard */
+  body.has-sidenav{padding-left:238px}          /* offset ONLY the dashboard, which has the sidebar */
+  body.has-sidenav .wrap{max-width:1140px;padding-top:30px;padding-bottom:40px}
 
   .side-nav{display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;width:238px;z-index:30;
     background:linear-gradient(180deg,#0B1F3A,#122c52);color:#fff;padding:22px 16px}

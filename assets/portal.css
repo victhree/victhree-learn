@@ -22,8 +22,8 @@ h1,h2,h3{color:var(--navy);margin:0 0 .4em;line-height:1.15}
 /* ---- header / banner ---- */
 .site-header{background:#02224b;border-bottom:3px solid var(--gold)} /* matches the banner image's blue */
 .banner-wrap{max-width:none;margin:0 auto;position:relative;text-align:center}  /* compact logo on the banner blue */
-.banner-wrap img{display:inline-block;height:58px;width:auto;max-width:94%;margin:0 auto;padding:8px 0}
-@media(max-width:560px){.banner-wrap img{height:44px;padding:7px 0}}
+.banner-wrap img{display:inline-block;height:76px;width:auto;max-width:94%;margin:0 auto;padding:12px 0}
+@media(max-width:560px){.banner-wrap img{height:62px;padding:11px 0}}
 .banner-link{display:block;cursor:pointer}
 .hdr-action{position:absolute;bottom:10px;right:12px;z-index:2;
   font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
@@ -66,8 +66,10 @@ input.field:focus,select.field:focus{outline:none;border-color:var(--gold);box-s
 .dash-head{margin:6px 0 20px}
 .dash-head h1{font-size:clamp(24px,5vw,34px);letter-spacing:.5px}
 .dash-head .lede{color:var(--muted);margin:4px 0 0}
-.dash-head .greeting{font-size:clamp(19px,4.3vw,28px);color:var(--navy);font-weight:800;line-height:1.35;letter-spacing:.3px;margin:6px 0 18px;min-height:2.5em}
+.dash-head .greeting{line-height:1.22;letter-spacing:.2px;margin:8px 0 22px;min-height:2.4em}
 .dash-head .greeting .g-l1,.dash-head .greeting .g-l2{display:block}
+.dash-head .greeting .g-l1{font-size:clamp(27px,7.2vw,36px);font-weight:800;color:var(--navy)}
+.dash-head .greeting .g-l2{font-size:clamp(17px,4.7vw,22px);font-weight:600;color:var(--muted);margin-top:4px}
 .caret{display:inline-block;color:var(--gold);font-weight:400;margin-left:1px;animation:blink 1s step-end infinite}
 .caret.done{animation:none;opacity:0}
 @keyframes blink{50%{opacity:0}}
@@ -212,12 +214,12 @@ tbody tr:last-child td{border-bottom:none}
 .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:8px}
 @media(max-width:700px){.tiles{grid-template-columns:1fr 1fr}}
 @media(max-width:460px){.tiles{grid-template-columns:1fr}}
-.tile{display:flex;flex-direction:column;gap:9px;justify-content:center;align-items:center;text-align:center;min-height:160px;
-  background:var(--navy);color:#fff;border-radius:var(--radius);padding:26px 20px;text-decoration:none;
+.tile{display:flex;flex-direction:column;gap:11px;justify-content:center;align-items:center;text-align:center;min-height:150px;
+  background:var(--navy);color:#fff;border-radius:16px;padding:24px 18px;text-decoration:none;
   box-shadow:0 2px 12px rgba(11,31,58,.18);transition:transform .12s ease,box-shadow .18s ease,filter .18s ease;cursor:pointer}
 .tile:hover{transform:translateY(-3px);filter:brightness(1.06);box-shadow:0 0 0 2px rgba(201,162,75,.55),0 6px 20px rgba(11,31,58,.22)}
-.tile .tile-ic{width:42px;height:42px;color:var(--gold)}
-.tile .tile-ic svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tile .tile-ic{width:54px;height:54px;color:var(--gold);display:flex;align-items:center;justify-content:center;background:rgba(201,162,75,.15);border-radius:15px}
+.tile .tile-ic svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .tile .tile-title{font-size:20px;font-weight:800;letter-spacing:.3px;color:#fff}
 .tile .tile-sub{font-size:13px;color:var(--gold-soft)}
 .tile .tile-lock{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:rgba(255,255,255,.7)}
@@ -238,13 +240,13 @@ tbody tr:last-child td{border-bottom:none}
 @media(max-width:460px){.ann-item{flex-direction:column;gap:4px}}
 
 /* ---- minimalist progress + streak (no card background) ---- */
-.prog-row{display:flex;align-items:center;gap:12px;margin:4px 0 18px}
-.prog-row .progress-track{flex:1 1 auto;height:8px;background:#e6ebf3;border-radius:999px;overflow:hidden}
+.prog-row{display:flex;align-items:center;gap:14px;margin:6px 0 24px}
+.prog-row .progress-track{flex:1 1 auto;height:9px;background:#e3e9f2;border-radius:999px;overflow:hidden}
 .prog-row .progress-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-soft));border-radius:999px;transition:width .5s ease}
-.prog-row .progress-pct{font-size:13px;font-weight:800;color:var(--navy);min-width:34px;text-align:right}
-.streak-inline{display:inline-flex;align-items:center;gap:5px}
-.streak-inline .sc-flame{font-size:18px;line-height:1}
-.streak-inline .sc-num{font-size:16px;font-weight:800;color:var(--navy)}
+.prog-row .progress-pct{font-size:14px;font-weight:800;color:var(--navy);min-width:36px;text-align:right}
+.streak-inline{display:inline-flex;align-items:center;gap:6px}
+.streak-inline .sc-flame{font-size:20px;line-height:1}
+.streak-inline .sc-num{font-size:17px;font-weight:800;color:var(--navy)}
 
 /* ---- Today's Video + Vocab of the Day (two-tile card) ---- */
 .duo-card{display:flex;gap:12px;background:var(--white);border:1px solid var(--line);
@@ -338,18 +340,22 @@ tbody tr:last-child td{border-bottom:none}
 .bottom-bar{display:none}
 @media(max-width:700px){
   .more-tab{display:none}                 /* hide the sidebar menu icon on phones */
-  .bottom-bar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:45;justify-content:space-around;
-    background:var(--white);border-top:1px solid var(--line);box-shadow:0 -4px 18px rgba(6,17,38,.10);
-    padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
-  .bb-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;text-decoration:none;padding:4px 2px;color:var(--navy)}
-  .bb-ic svg{width:22px;height:22px;color:var(--navy)}
-  .bb-label{font-size:10px;font-weight:700;color:var(--muted)}
-  body{padding-bottom:74px}               /* room so the footer clears the bar */
-  /* compact nav tiles: 2 across, icon + title only */
+  .bottom-bar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:45;justify-content:space-around;align-items:stretch;
+    background:var(--white);border-top:1px solid var(--line);box-shadow:0 -6px 22px rgba(6,17,38,.12);
+    padding:9px 6px calc(9px + env(safe-area-inset-bottom))}
+  .bb-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;text-decoration:none;padding:6px 2px;
+    color:var(--navy);border-radius:12px;transition:background .15s ease}
+  .bb-item:active{background:rgba(11,31,58,.06)}
+  .bb-ic{display:flex;align-items:center;justify-content:center}
+  .bb-ic svg{width:24px;height:24px;color:var(--navy)}
+  .bb-label{font-size:10.5px;font-weight:600;color:var(--muted);letter-spacing:.1px}
+  body{padding-bottom:78px}               /* room so the footer clears the bar */
+  /* compact nav tiles: 2 across, icon chip + title only */
   .tiles{grid-template-columns:1fr 1fr;gap:12px}
-  .tile{min-height:auto;padding:16px 12px;gap:7px}
-  .tile .tile-ic{width:30px;height:30px}
-  .tile .tile-title{font-size:15px}
+  .tile{min-height:128px;padding:18px 12px;gap:10px}
+  .tile .tile-ic{width:46px;height:46px}
+  .tile .tile-ic svg{width:24px;height:24px}
+  .tile .tile-title{font-size:15.5px}
   .tile .tile-sub{display:none}
 }
 @media(max-width:460px){.tiles{grid-template-columns:1fr 1fr}}  /* keep 2 across on small phones */

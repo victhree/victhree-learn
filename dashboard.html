@@ -17,7 +17,7 @@
 
 <!-- Desktop-only left navigation (hidden on phones/tablets). -->
 <aside class="side-nav" aria-label="Main navigation">
-  <a class="sn-brand" href="#home"><img src="assets/shield-32.png" alt=""><span>VicThree</span></a>
+  <a class="sn-brand" href="#home"><img src="assets/banner.jpg" alt="VicThree Defence"></a>
   <nav class="sn-links">
     <a class="sn-link" data-route="home" href="#home"><span class="sn-ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>Dashboard</a>
     <a class="sn-link" data-route="lectures" href="#lectures"><span class="sn-ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/></svg></span>Lectures</a>
@@ -50,10 +50,13 @@
       <span class="g-l2"><span id="typedGreet"></span><span class="caret" id="caret" aria-hidden="true">|</span></span>
     </h1></div>
 
-    <div class="prog-row" id="progRow" hidden>
-      <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
-      <span class="progress-pct" id="progPct">0%</span>
-      <span class="streak-inline" title="Study streak"><span class="sc-flame" aria-hidden="true">&#128293;</span><span class="sc-num" id="streakNum">1</span></span>
+    <div class="prog-block" id="progRow" hidden>
+      <div class="prog-label">Course progress</div>
+      <div class="prog-row">
+        <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
+        <span class="progress-pct" id="progPct">0%</span>
+        <span class="streak-inline" title="Study streak"><span class="sc-flame" aria-hidden="true">&#128293;</span><span class="sc-num" id="streakNum">1</span></span>
+      </div>
     </div>
 
     <div class="duo-card">

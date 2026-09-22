@@ -240,7 +240,9 @@ tbody tr:last-child td{border-bottom:none}
 @media(max-width:460px){.ann-item{flex-direction:column;gap:4px}}
 
 /* ---- minimalist progress + streak (no card background) ---- */
-.prog-row{display:flex;align-items:center;gap:14px;margin:6px 0 24px}
+.prog-block{margin:6px 0 24px}
+.prog-label{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.2px;margin:0 0 7px}
+.prog-row{display:flex;align-items:center;gap:14px}
 .prog-row .progress-track{flex:1 1 auto;height:9px;background:#e3e9f2;border-radius:999px;overflow:hidden}
 .prog-row .progress-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-soft));border-radius:999px;transition:width .5s ease}
 .prog-row .progress-pct{font-size:14px;font-weight:800;color:var(--navy);min-width:36px;text-align:right}
@@ -375,9 +377,8 @@ tbody tr:last-child td{border-bottom:none}
 
   .side-nav{display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;width:238px;z-index:30;
     background:linear-gradient(180deg,#0B1F3A,#122c52);color:#fff;padding:22px 16px}
-  .sn-brand{display:flex;align-items:center;gap:10px;color:#fff;text-decoration:none;
-    font-family:"Cinzel",Georgia,serif;font-weight:700;font-size:20px;letter-spacing:.5px;padding:2px 8px 20px}
-  .sn-brand img{width:30px;height:30px}
+  .sn-brand{display:block;text-decoration:none;padding:2px 2px 18px}
+  .sn-brand img{width:100%;height:auto;display:block;border-radius:8px}
   .sn-links{display:flex;flex-direction:column;gap:4px}
   .sn-link{display:flex;align-items:center;gap:12px;color:rgba(255,255,255,.82);text-decoration:none;
     padding:11px 12px;border-radius:12px;font-weight:600;font-size:14.5px;transition:background .15s ease,color .15s ease}
@@ -397,7 +398,7 @@ tbody tr:last-child td{border-bottom:none}
   /* home becomes middle content + right rail */
   .home-grid{display:grid;grid-template-columns:1fr 320px;gap:28px;align-items:start}
   .home-rail{display:block;position:sticky;top:30px}
-  #v-home .tiles{display:none}           /* nav is in the sidebar now */
+  #v-home .tiles{grid-template-columns:1fr 1fr}   /* also show the tiles below announcements */
   .duo-tile{min-height:132px}
 
   /* right-rail cards */

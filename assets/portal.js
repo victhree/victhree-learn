@@ -83,6 +83,10 @@ window.TOOLS = [
     ic: '<circle cx="8.5" cy="9" r="3"/><path d="M3.5 19a5 5 0 0 1 10 0"/><path d="M15.5 6.4a3 3 0 0 1 0 5.9M20 19a5 5 0 0 0-3.2-4.7"/>' }
 ];
 
+// The SSB practice site (the "Practice SSB" button on the progress page links here
+// with the student's token appended, so they arrive already signed in).
+window.SSB_URL = "https://ssb.victhreedefence.com/";
+
 // Append the login token to an SSB link so the signed-in student is recognised there.
 function ssbHandoff(url){
   try { var t = getToken(); if (!t || !url) return url || "#"; return url + "#vt=" + encodeURIComponent(t); }

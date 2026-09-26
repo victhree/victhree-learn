@@ -309,6 +309,9 @@ tbody tr:last-child td{border-bottom:none}
 .tool-tile .tool-go{position:absolute;top:14px;right:16px;color:var(--gold);font-size:15px;font-weight:800}
 
 /* ---- SSB progress view ---- */
+.ssb-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  margin:0 0 16px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.ssb-head .btn{padding:9px 16px;font-size:13.5px}
 .ssb-entry .today-k{color:var(--gold-soft)}
 .ssb-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
 @media(max-width:560px){.ssb-grid{grid-template-columns:1fr}}

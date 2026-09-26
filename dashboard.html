@@ -203,7 +203,10 @@
   <!-- ===== SSB PROGRESS ===== -->
   <section id="v-ssb" class="hide">
     <a class="back-link" id="back-ssb" href="#">&larr; Home</a>
-    <div class="section-title">Your SSB progress</div>
+    <div class="ssb-head">
+      <div class="section-title" style="margin:0;border:0;padding:0">Your SSB progress</div>
+      <a class="btn primary" id="ssbPractice" href="#" target="_blank" rel="noopener">Practice SSB tests &rarr;</a>
+    </div>
     <div id="ssb-msg"></div>
     <div id="ssb-body" hidden>
       <div class="ssb-grid">
@@ -540,6 +543,7 @@
   on("nav-notes", function(){ go("notes"); });
   on("nav-currentaffairs", function(){ go("current-affairs"); });
   on("nav-ssb", function(){ go("ssb"); });
+  (function(){ var b = document.getElementById("ssbPractice"); if (b && window.SSB_URL) b.href = ssbHandoff(window.SSB_URL); })();
   on("back-home", function(){ history.back(); });
   on("back-lectures", function(){ history.back(); });
   on("back-empty", function(){ history.back(); });

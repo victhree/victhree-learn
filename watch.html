@@ -32,6 +32,15 @@
   </div>
 
   <div class="watch-actions" id="actions"></div>
+
+  <div class="doubt-box" id="doubtBox" hidden>
+    <div class="doubt-head">Ask a doubt on this topic</div>
+    <textarea id="doubtText" class="doubt-input" rows="4" placeholder="Type your doubt about this lesson. It reaches Anmol with the topic attached, and he will get back to you."></textarea>
+    <div class="doubt-actions">
+      <button class="btn primary" id="doubtSend">Send doubt</button>
+      <span id="doubtMsg" class="doubt-msg"></span>
+    </div>
+  </div>
 </main>
 
 <footer class="site-footer">VicThree Defence · Course</footer>
@@ -91,6 +100,31 @@
     if (testUrl) { testTab.href = testUrl; testTab.target = "_blank"; testTab.rel = "noopener"; }
     else testTab.title = "The test for this topic will be added soon";
     actions.appendChild(testTab);
+
+    // Ask a doubt tab: reveals a form; the doubt is tagged with this topic.
+    var DOUBT_ICON = '<span class="tab-ic"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/><path d="M8 9.5h8M8 12.5h5"/></svg></span>';
+    var doubtTab = document.createElement("button");
+    doubtTab.className = "tab";
+    doubtTab.innerHTML = DOUBT_ICON + "Ask a doubt";
+    doubtTab.addEventListener("click", function(){
+      var box = document.getElementById("doubtBox");
+      box.hidden = !box.hidden;
+      if (!box.hidden) document.getElementById("doubtText").focus();
+    });
+    actions.appendChild(doubtTab);
+
+    document.getElementById("doubtSend").addEventListener("click", async function(){
+      var ta = document.getElementById("doubtText"), msg = document.getElementById("doubtMsg");
+      var text = ta.value.trim();
+      if (!text) { msg.className = "doubt-msg err"; msg.textContent = "Please type your doubt first."; return; }
+      this.disabled = true; this.textContent = "Sending…";
+      var r = await api("/api/doubt", { method: "POST", body: { day: day, text: text } });
+      this.disabled = false; this.textContent = "Send doubt";
+      if (r && r.ok) {
+        ta.value = ""; msg.className = "doubt-msg ok"; msg.textContent = "Sent. Anmol will get back to you.";
+        setTimeout(function(){ document.getElementById("doubtBox").hidden = true; msg.textContent = ""; }, 2500);
+      } else { msg.className = "doubt-msg err"; msg.textContent = "Could not send. Please try again."; }
+    });
   })();
 
   function fail(text){

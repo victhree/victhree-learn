@@ -57,3 +57,20 @@ CREATE TABLE IF NOT EXISTS ssb_olq_profile (
   last_seen_at    INTEGER NOT NULL,          -- ms timestamp of the most recent attempt
   PRIMARY KEY (student_id, olq)
 );
+
+-- =============================================================================
+-- Student doubts (asked from a lesson's "Ask a doubt" tab). One row per doubt,
+-- tagged with the topic so the owner can read them topic-wise in doubts.html.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS doubts (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  student_id INTEGER NOT NULL,
+  product    TEXT NOT NULL,                 -- 'trial' or 'course'
+  day        INTEGER,                       -- topic/day number (NULL = general)
+  topic      TEXT,                          -- topic title snapshot at asking time
+  text       TEXT NOT NULL,                 -- the doubt
+  status     TEXT NOT NULL DEFAULT 'new',   -- 'new' or 'resolved'
+  created_at INTEGER NOT NULL               -- ms timestamp
+);
+CREATE INDEX IF NOT EXISTS idx_doubts_day ON doubts(day, created_at);
+CREATE INDEX IF NOT EXISTS idx_doubts_status ON doubts(status, created_at);

@@ -94,6 +94,10 @@ export default {
       if (path === "/api/ssb/me"            && request.method === "GET")  return await withAuth(request, env, cors, ssbMe, url);
       if (path === "/api/admin/ssb/roster"  && request.method === "GET")  return await adminSsbRoster(request, env, cors);
       if (path === "/api/admin/ssb/student" && request.method === "GET")  return await adminSsbStudent(request, env, cors, url);
+      // ---- student doubts ----
+      if (path === "/api/doubt"             && request.method === "POST") return await withAuth(request, env, cors, askDoubt, url);
+      if (path === "/api/admin/doubts"      && request.method === "GET")  return await adminListDoubts(request, env, cors, url);
+      if (path === "/api/admin/doubt-resolve" && request.method === "POST") return await adminResolveDoubt(request, env, cors);
       return json({ error: "not_found" }, 404, cors);
     } catch (e) {
       return json({ error: "server_error", detail: String((e && e.message) || e) }, 500, cors);
@@ -449,6 +453,67 @@ async function adminSsbStudent(request, env, cors, url) {
   if (!s) return json({ error: "no_such_student" }, 404, cors);
   const data = await ssbProfileFor(env, id);
   return json({ student: s, ...data }, 200, cors);
+}
+
+/* ============================== DOUBTS API =============================== */
+
+// A logged-in student submits a doubt from a lesson. We tag it with the topic
+// (from the day number) so the owner can read doubts topic-wise.
+async function askDoubt(env, cors, student, url, request) {
+  const b = await readJson(request);
+  const text = String(b.text || "").trim().slice(0, 2000);
+  if (!text) return json({ error: "empty" }, 400, cors);
+  let day = parseInt(b.day, 10); if (isNaN(day)) day = null;
+  let topic = null;
+  if (day != null) {
+    const l = (LESSONS[student.product] || []).find(x => x.day === day);
+    topic = l ? l.title : null;
+  }
+  const now = Date.now();
+  await env.DB.prepare(
+    "INSERT INTO doubts (student_id, product, day, topic, text, status, created_at) VALUES (?, ?, ?, ?, ?, 'new', ?)"
+  ).bind(student.id, student.product, day, topic, text, now).run();
+
+  // Optional: email the owner a copy (only if ADMIN_EMAIL is set). Never fail the request.
+  if (env.ADMIN_EMAIL) {
+    const subj = "New doubt" + (day != null ? (" — Topic " + day + (topic ? (": " + topic) : "")) : "");
+    const html =
+      `<div style="font-family:Arial,sans-serif;font-size:15px;color:#1c2331">` +
+      `<p><b>${escapeHtml(student.name || "A student")}</b> (${escapeHtml(student.email)}) asked a doubt` +
+      (day != null ? ` on <b>Topic ${day}${topic ? (": " + escapeHtml(topic)) : ""}</b>` : "") + `:</p>` +
+      `<blockquote style="margin:0;padding:10px 14px;border-left:3px solid #C9A24B;background:#f5f7fb">${escapeHtml(text)}</blockquote>` +
+      `<p style="color:#6b7a90;font-size:13px">Open your doubts page to reply.</p></div>`;
+    try {
+      await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + env.RESEND_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ from: env.FROM_EMAIL, to: [env.ADMIN_EMAIL], subject: subj, html })
+      });
+    } catch (_) {}
+  }
+  return json({ ok: true }, 200, cors);
+}
+
+async function adminListDoubts(request, env, cors, url) {
+  if (!adminOk(request, env)) return json({ error: "forbidden" }, 403, cors);
+  const newOnly = url.searchParams.get("status") === "new";
+  let sql =
+    "SELECT d.id, d.day, d.topic, d.text, d.status, d.created_at, d.product, s.name, s.email " +
+    "FROM doubts d LEFT JOIN students s ON s.id = d.student_id";
+  if (newOnly) sql += " WHERE d.status = 'new'";
+  sql += " ORDER BY d.created_at DESC LIMIT 500";
+  const { results } = await env.DB.prepare(sql).all();
+  return json({ doubts: results || [] }, 200, cors);
+}
+
+async function adminResolveDoubt(request, env, cors) {
+  if (!adminOk(request, env)) return json({ error: "forbidden" }, 403, cors);
+  const b = await readJson(request);
+  const id = parseInt(b.id, 10);
+  if (!id) return json({ error: "bad_id" }, 400, cors);
+  const status = (b.status === "new") ? "new" : "resolved";
+  await env.DB.prepare("UPDATE doubts SET status = ? WHERE id = ?").bind(status, id).run();
+  return json({ ok: true }, 200, cors);
 }
 
 /* ============================== HELPERS ================================== */

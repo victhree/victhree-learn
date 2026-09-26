@@ -335,6 +335,35 @@ tbody tr:last-child td{border-bottom:none}
 .ssb-attempt-sum{margin:0 0 9px;font-size:13.5px;color:#33435c;line-height:1.55}
 .tile.locked .tile-lock{color:var(--muted)}
 
+/* ---- Ask a doubt (on the watch page) ---- */
+.doubt-box{margin-top:14px;background:var(--white);border:1px solid var(--line);border-left:4px solid var(--gold);
+  border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px}
+.doubt-head{font-size:14px;font-weight:800;color:var(--navy);margin-bottom:10px}
+.doubt-input{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px 14px;font:inherit;font-size:14.5px;
+  color:var(--ink);background:#fafbfe;resize:vertical;min-height:96px}
+.doubt-input:focus{outline:none;border-color:var(--gold);background:#fff}
+.doubt-actions{display:flex;align-items:center;gap:12px;margin-top:12px}
+.doubt-msg{font-size:13px}
+.doubt-msg.ok{color:var(--green)}
+.doubt-msg.err{color:var(--red)}
+
+/* ---- Doubts admin page ---- */
+.doubts-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:6px 0 16px}
+.doubts-toggle{font-family:var(--sans);font-size:.9rem;color:var(--ink);display:inline-flex;align-items:center;gap:8px}
+.doubt-group{margin-bottom:22px}
+.doubt-group-title{font-size:13px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--gold);
+  padding-bottom:8px;border-bottom:1px solid var(--line);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.doubt-count{background:#eef1f6;color:var(--navy);font-size:11px;font-weight:800;border-radius:999px;padding:1px 8px}
+.doubt-item{border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:11px;background:#fafbfe}
+.doubt-item.resolved{opacity:.62}
+.doubt-meta{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-bottom:6px}
+.doubt-who{font-weight:800;color:var(--navy);font-size:14px}
+.doubt-email{font-size:12.5px;color:var(--muted)}
+.doubt-time{font-size:12px;color:var(--muted);margin-left:auto}
+.doubt-text{margin:0 0 11px;font-size:14.5px;color:#33435c;line-height:1.55;white-space:pre-wrap}
+.doubt-row{display:flex;gap:10px;flex-wrap:wrap}
+.btn.sm{padding:7px 14px;font-size:13px}
+
 /* ---- footer ---- */
 .site-footer{text-align:center;color:var(--muted);font-size:12.5px;padding:18px}
 

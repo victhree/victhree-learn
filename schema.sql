@@ -74,3 +74,20 @@ CREATE TABLE IF NOT EXISTS doubts (
 );
 CREATE INDEX IF NOT EXISTS idx_doubts_day ON doubts(day, created_at);
 CREATE INDEX IF NOT EXISTS idx_doubts_status ON doubts(status, created_at);
+
+-- =============================================================================
+-- Mock test results (sent by the mock-test site when a signed-in student finishes
+-- a mock). One row per attempt; the owner reads them per student in the console.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS mock_attempts (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  student_id INTEGER NOT NULL,
+  test_id    TEXT,                          -- e.g. 'geo-sec-01', 'full-mock-01'
+  test_title TEXT,                          -- display title
+  score      REAL,                          -- marks obtained
+  total      REAL,                          -- max marks
+  percent    REAL,                          -- 0-100
+  seconds    INTEGER,                        -- time taken (optional)
+  created_at INTEGER NOT NULL               -- ms timestamp
+);
+CREATE INDEX IF NOT EXISTS idx_mock_student ON mock_attempts(student_id, created_at);

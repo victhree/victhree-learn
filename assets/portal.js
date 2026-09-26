@@ -75,7 +75,7 @@ window.TOOLS = [
     ic: '<path d="M12 6.6C10.6 5.4 8.4 4.9 5.8 5.2v11.6c2.6-.3 4.8.2 6.2 1.4 1.4-1.2 3.6-1.7 6.2-1.4V5.2c-2.6-.3-4.8.2-6.2 1.4z"/><path d="M12 6.6V18.2"/>' },
   { name: "PYQ Library",     short: "PYQ",       sub: "CDS past papers, quizzable",          url: "https://pyq.victhreedefence.com/",
     ic: '<path d="M7 3.5h6.5L18 8v11.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1z"/><path d="M13.5 3.5V8H18"/><path d="M9 12.5h6M9 15.5h4"/>' },
-  { name: "Mock Tests",      short: "Mocks",     sub: "Full & sectional mocks",              url: "https://victhree.github.io/victhree-mocks/",
+  { name: "Mock Tests",      short: "Mocks",     sub: "Full & sectional mocks",              url: "https://victhree.github.io/victhree-mocks/", handoff: true,
     ic: '<rect x="6" y="4.5" width="12" height="16" rx="2"/><path d="M9.5 4.5V3.6a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v.9"/><path d="M9 12.5l2 2 4-4"/>' },
   { name: "SSB Interview",   short: "Interview", sub: "Personal interview trainer",          url: "https://interview.victhreedefence.com/", handoff: true,
     ic: '<circle cx="12" cy="8" r="3.5"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>' },

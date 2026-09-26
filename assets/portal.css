@@ -364,6 +364,20 @@ tbody tr:last-child td{border-bottom:none}
 .doubt-row{display:flex;gap:10px;flex-wrap:wrap}
 .btn.sm{padding:7px 14px;font-size:13px}
 
+/* ---- console tabs ---- */
+.tabbar{display:flex;gap:6px;margin:0 0 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tabbtn{font:inherit;font-weight:700;font-size:14px;color:var(--muted);background:none;border:none;cursor:pointer;
+  padding:11px 16px;border-bottom:3px solid transparent;margin-bottom:-1px}
+.tabbtn:hover{color:var(--navy)}
+.tabbtn.active{color:var(--navy);border-bottom-color:var(--gold)}
+.tabpane.hide{display:none}
+
+/* ---- score badge (mock %) ---- */
+.pct{display:inline-block;font-weight:800;font-size:13px;border-radius:999px;padding:2px 10px}
+.pct.ok{background:var(--green-bg);color:#1f6b43}
+.pct.warn{background:#fbf1dd;color:#8a6d1e}
+.pct.low{background:var(--red-bg);color:var(--red)}
+
 /* ---- footer ---- */
 .site-footer{text-align:center;color:var(--muted);font-size:12.5px;padding:18px}
 

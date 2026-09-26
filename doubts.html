@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Doubts | VicThree Defence</title>
+<title>Console | VicThree Defence</title>
 <meta name="robots" content="noindex">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/shield-32.png">
 <link rel="apple-touch-icon" href="assets/shield-180.png">
@@ -23,7 +23,7 @@
 
   <!-- Ask for the admin key once; stored only in this browser. -->
   <div class="card" id="keycard">
-    <h2>Doubts access</h2>
+    <h2>Console access</h2>
     <p class="muted" style="font-family:var(--sans);font-size:.9rem">Enter your admin key. It is kept only in this browser and sent with each request.</p>
     <div id="keymsg"></div>
     <label for="adminkey">Admin key</label>
@@ -32,20 +32,59 @@
   </div>
 
   <div id="panel" class="hide">
-    <div class="card">
-      <h2 style="margin-bottom:6px">Student doubts</h2>
-      <p class="muted" style="font-family:var(--sans);font-size:.9rem">Doubts students submit from a lesson, grouped by topic. Mark one answered once you have replied on WhatsApp/Telegram.</p>
-      <div class="doubts-bar">
-        <label class="doubts-toggle"><input type="checkbox" id="newOnly" checked> Show unanswered only</label>
-        <button class="btn ghost" id="refresh">Refresh</button>
-      </div>
-      <div id="doubtsWrap"><p class="muted">Loading&hellip;</p></div>
+    <div class="tabbar">
+      <button class="tabbtn active" data-tab="doubts">Doubts</button>
+      <button class="tabbtn" data-tab="ssb">SSB Performance</button>
+      <button class="tabbtn" data-tab="mock">Mock Tests</button>
     </div>
+
+    <!-- ===== DOUBTS ===== -->
+    <section class="tabpane" id="pane-doubts">
+      <div class="card">
+        <h2 style="margin-bottom:6px">Student doubts</h2>
+        <p class="muted" style="font-family:var(--sans);font-size:.9rem">Doubts students submit from a lesson, grouped by topic. Mark one answered once you have replied.</p>
+        <div class="doubts-bar">
+          <label class="doubts-toggle"><input type="checkbox" id="newOnly" checked> Show unanswered only</label>
+          <button class="btn ghost" id="refreshD">Refresh</button>
+        </div>
+        <div id="doubtsWrap"><p class="muted">Loading&hellip;</p></div>
+      </div>
+    </section>
+
+    <!-- ===== SSB PERFORMANCE ===== -->
+    <section class="tabpane hide" id="pane-ssb">
+      <div class="card">
+        <h2 style="margin-bottom:6px">SSB performance</h2>
+        <p class="muted" style="font-family:var(--sans);font-size:.9rem">Built from the SSB tests students take on the SSB site. Click a student for their qualities and recent tests.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Tests</th><th>Weakest area</th><th>Last active</th><th></th></tr></thead>
+            <tbody id="ssb-rows"><tr><td colspan="5" class="muted">Loading&hellip;</td></tr></tbody>
+          </table>
+        </div>
+        <div id="ssb-detail" class="hide" style="margin-top:18px"></div>
+      </div>
+    </section>
+
+    <!-- ===== MOCK TESTS ===== -->
+    <section class="tabpane hide" id="pane-mock">
+      <div class="card">
+        <h2 style="margin-bottom:6px">Mock test performance</h2>
+        <p class="muted" style="font-family:var(--sans);font-size:.9rem">Sent from the mock-test site when a signed-in student finishes a mock. Click a student for every attempt.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Mocks</th><th>Best %</th><th>Avg %</th><th>Last</th><th></th></tr></thead>
+            <tbody id="mock-rows"><tr><td colspan="6" class="muted">Loading&hellip;</td></tr></tbody>
+          </table>
+        </div>
+        <div id="mock-detail" class="hide" style="margin-top:18px"></div>
+      </div>
+    </section>
   </div>
 
 </main>
 
-<footer class="site-footer">VicThree Defence &middot; Doubts</footer>
+<footer class="site-footer">VicThree Defence &middot; Console</footer>
 
 <script src="assets/portal.js"></script>
 <script>
@@ -65,12 +104,22 @@
   function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
   function fmtWhen(ms){ try { return new Date(ms).toLocaleString("en-IN", { timeZone:"Asia/Kolkata", day:"numeric", month:"short", hour:"numeric", minute:"2-digit", hour12:true }); } catch { return ""; } }
 
+  /* ---- tabs ---- */
+  var loaded = { doubts:false, ssb:false, mock:false };
+  function switchTab(name){
+    document.querySelectorAll(".tabbtn").forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-tab")===name); });
+    document.querySelectorAll(".tabpane").forEach(function(p){ p.classList.toggle("hide", p.id !== ("pane-"+name)); });
+    if (name==="doubts" && !loaded.doubts){ loaded.doubts=true; loadDoubts(); }
+    if (name==="ssb" && !loaded.ssb){ loaded.ssb=true; loadSsbRoster(); }
+    if (name==="mock" && !loaded.mock){ loaded.mock=true; loadMockRoster(); }
+  }
+  document.querySelectorAll(".tabbtn").forEach(function(b){ b.addEventListener("click", function(){ switchTab(b.getAttribute("data-tab")); }); });
+
   function enterPanel(){
     document.getElementById("keycard").classList.add("hide");
     document.getElementById("panel").classList.remove("hide");
-    loadDoubts();
+    switchTab("doubts");
   }
-
   document.getElementById("savekey").addEventListener("click", async function(){
     var k = document.getElementById("adminkey").value.trim();
     if (!k){ show("keymsg","err","Enter your admin key."); return; }
@@ -80,15 +129,15 @@
     enterPanel();
   });
   document.getElementById("forget").addEventListener("click", function(){ try{localStorage.removeItem(AK_KEY);}catch{} location.reload(); });
-  document.getElementById("newOnly").addEventListener("change", loadDoubts);
-  document.getElementById("refresh").addEventListener("click", loadDoubts);
 
+  /* ---- doubts ---- */
+  document.getElementById("newOnly").addEventListener("change", loadDoubts);
+  document.getElementById("refreshD").addEventListener("click", loadDoubts);
   async function resolve(id, toStatus, btn){
     btn.disabled = true;
     var r = await adminApi("/api/admin/doubt-resolve", { method:"POST", body:{ id:id, status:toStatus } });
-    if (r.ok) loadDoubts(); else { btn.disabled = false; }
+    if (r.ok) loadDoubts(); else btn.disabled = false;
   }
-
   async function loadDoubts(){
     var wrap = document.getElementById("doubtsWrap");
     var newOnly = document.getElementById("newOnly").checked;
@@ -97,8 +146,6 @@
     if (!r.ok){ wrap.innerHTML = '<p class="muted">Could not load doubts.</p>'; return; }
     var list = (r.data && r.data.doubts) || [];
     if (!list.length){ wrap.innerHTML = '<div class="empty-state"><h3>No doubts'+(newOnly?' waiting':'')+'</h3><p class="muted">'+(newOnly?'You are all caught up.':'Nothing here yet.')+'</p></div>'; return; }
-
-    // group topic-wise
     var groups = {};
     list.forEach(function(d){
       var key = (d.day != null) ? ("Topic " + d.day + (d.topic ? (": " + d.topic) : "")) : "General";
@@ -107,7 +154,6 @@
       groups[key].items.push(d);
     });
     var keys = Object.keys(groups).sort(function(a,b){ return groups[a].sort - groups[b].sort; });
-
     wrap.innerHTML = "";
     keys.forEach(function(k){
       var g = groups[k];
@@ -134,6 +180,85 @@
       });
       wrap.appendChild(sec);
     });
+  }
+
+  /* ---- SSB performance ---- */
+  async function loadSsbRoster(){
+    var rows = document.getElementById("ssb-rows");
+    var r = await adminApi("/api/admin/ssb/roster");
+    if (!r.ok){ rows.innerHTML = '<tr><td colspan="5" class="muted">Could not load.</td></tr>'; return; }
+    var list = ((r.data && r.data.students) || []).filter(function(s){ return s.attempts > 0; });
+    if (!list.length){ rows.innerHTML = '<tr><td colspan="5" class="muted">No SSB tests tracked yet.</td></tr>'; return; }
+    rows.innerHTML = list.map(function(s){
+      return '<tr><td>'+esc(s.name)+'<div class="muted" style="font-size:.8rem">'+esc(s.email)+'</div></td>'+
+        '<td>'+s.attempts+'</td>'+
+        '<td>'+(s.topWeak?esc(olqLabel(s.topWeak)):'<span class="muted">&mdash;</span>')+'</td>'+
+        '<td>'+(s.lastAt?esc(fmtDate(s.lastAt)):'<span class="muted">&mdash;</span>')+'</td>'+
+        '<td><a href="#" class="hdr-action ssb-view" data-id="'+s.id+'">View</a></td></tr>';
+    }).join("");
+    Array.prototype.forEach.call(document.querySelectorAll(".ssb-view"), function(a){
+      a.addEventListener("click", function(e){ e.preventDefault(); loadSsbDetail(a.getAttribute("data-id")); });
+    });
+  }
+  async function loadSsbDetail(id){
+    var box = document.getElementById("ssb-detail");
+    box.classList.remove("hide"); box.innerHTML = '<p class="muted">Loading&hellip;</p>';
+    var r = await adminApi("/api/admin/ssb/student?id="+encodeURIComponent(id));
+    if (!r.ok){ box.innerHTML = '<div class="msg err">Could not load that student.</div>'; return; }
+    var d = r.data || {}, s = d.student || {};
+    var prof = (d.profile || []).slice().sort(function(a,b){ return (b.work_count-a.work_count) || olqLabel(a.olq).localeCompare(olqLabel(b.olq)); });
+    var focus = (d.focus_olqs || []).map(function(k){ return '<span class="pill trial">'+esc(olqLabel(k))+'</span>'; }).join(" ") || '<span class="muted">&mdash;</span>';
+    var olqTable = prof.length ? ('<table style="margin-top:8px"><thead><tr><th>Quality</th><th>Strength</th><th>To work on</th></tr></thead><tbody>'+
+      prof.map(function(p){ return '<tr><td>'+esc(olqLabel(p.olq))+'</td><td>'+(p.reflected_count||0)+'</td><td>'+(p.work_count||0)+'</td></tr>'; }).join("")+'</tbody></table>') : '<p class="muted">No qualities recorded yet.</p>';
+    var attempts = (d.attempts || []).map(function(a){
+      var chips = (a.work||[]).map(function(k){ return esc(olqLabel(k)); }).join(", ");
+      return '<div style="border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:10px">'+
+        '<div style="display:flex;justify-content:space-between;gap:10px"><strong>'+esc(ssbModeName(a.mode))+'</strong>'+
+        '<span class="muted" style="font-size:.85rem">'+esc(fmtDate(a.createdAt))+'</span></div>'+
+        (a.summary?'<p style="margin:6px 0 0;font-size:.9rem;color:#33435c">'+esc(a.summary)+'</p>':'')+
+        (chips?'<p style="margin:6px 0 0;font-size:.82rem" class="muted">To work on: '+chips+'</p>':'')+'</div>';
+    }).join("") || '<p class="muted">No tests yet.</p>';
+    box.innerHTML = '<h3 style="margin-bottom:4px">'+esc(s.name||"")+'</h3>'+
+      '<p class="muted" style="font-size:.85rem;margin-top:0">'+esc(s.email||"")+' &middot; '+d.total+' test'+(d.total===1?"":"s")+'</p>'+
+      '<p style="margin:10px 0 2px"><strong>Focus areas:</strong> '+focus+'</p>'+ olqTable +
+      '<h4 style="margin:16px 0 8px">Recent tests</h4>'+ attempts;
+    box.scrollIntoView({ behavior:"smooth", block:"nearest" });
+  }
+
+  /* ---- Mock tests ---- */
+  function pctBadge(p){ if(p==null) return '<span class="muted">&mdash;</span>'; var c = p>=60?'ok':(p>=40?'warn':'low'); return '<span class="pct '+c+'">'+p+'%</span>'; }
+  async function loadMockRoster(){
+    var rows = document.getElementById("mock-rows");
+    var r = await adminApi("/api/admin/mock/roster");
+    if (!r.ok){ rows.innerHTML = '<tr><td colspan="6" class="muted">Could not load.</td></tr>'; return; }
+    var list = ((r.data && r.data.students) || []).filter(function(s){ return s.attempts > 0; });
+    if (!list.length){ rows.innerHTML = '<tr><td colspan="6" class="muted">No mock results yet. (The mock-test site needs to send results — see the hand-off.)</td></tr>'; return; }
+    rows.innerHTML = list.map(function(s){
+      return '<tr><td>'+esc(s.name)+'<div class="muted" style="font-size:.8rem">'+esc(s.email)+'</div></td>'+
+        '<td>'+s.attempts+'</td>'+
+        '<td>'+pctBadge(s.best)+'</td>'+
+        '<td>'+pctBadge(s.avg)+'</td>'+
+        '<td>'+(s.lastAt?esc(fmtDate(s.lastAt)):'<span class="muted">&mdash;</span>')+'</td>'+
+        '<td><a href="#" class="hdr-action mock-view" data-id="'+s.id+'">View</a></td></tr>';
+    }).join("");
+    Array.prototype.forEach.call(document.querySelectorAll(".mock-view"), function(a){
+      a.addEventListener("click", function(e){ e.preventDefault(); loadMockDetail(a.getAttribute("data-id")); });
+    });
+  }
+  async function loadMockDetail(id){
+    var box = document.getElementById("mock-detail");
+    box.classList.remove("hide"); box.innerHTML = '<p class="muted">Loading&hellip;</p>';
+    var r = await adminApi("/api/admin/mock/student?id="+encodeURIComponent(id));
+    if (!r.ok){ box.innerHTML = '<div class="msg err">Could not load that student.</div>'; return; }
+    var d = r.data || {}, s = d.student || {};
+    var rowsHtml = (d.attempts || []).map(function(a){
+      var sc = (a.score!=null && a.total!=null) ? (a.score+" / "+a.total) : "";
+      return '<tr><td>'+esc(a.test_title||a.test_id||"Mock")+'</td><td>'+pctBadge(a.percent)+'</td><td>'+esc(sc)+'</td><td>'+esc(fmtDate(a.created_at))+'</td></tr>';
+    }).join("") || '<tr><td colspan="4" class="muted">No attempts yet.</td></tr>';
+    box.innerHTML = '<h3 style="margin-bottom:4px">'+esc(s.name||"")+'</h3>'+
+      '<p class="muted" style="font-size:.85rem;margin-top:0">'+esc(s.email||"")+'</p>'+
+      '<div class="table-wrap"><table><thead><tr><th>Test</th><th>Score</th><th>Marks</th><th>Date</th></tr></thead><tbody>'+rowsHtml+'</tbody></table></div>';
+    box.scrollIntoView({ behavior:"smooth", block:"nearest" });
   }
 
   if (adminKey()) enterPanel();

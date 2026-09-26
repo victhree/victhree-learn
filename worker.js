@@ -98,6 +98,10 @@ export default {
       if (path === "/api/doubt"             && request.method === "POST") return await withAuth(request, env, cors, askDoubt, url);
       if (path === "/api/admin/doubts"      && request.method === "GET")  return await adminListDoubts(request, env, cors, url);
       if (path === "/api/admin/doubt-resolve" && request.method === "POST") return await adminResolveDoubt(request, env, cors);
+      // ---- mock test results ----
+      if (path === "/api/mock/attempt"      && request.method === "POST") return await withAuth(request, env, cors, mockAttempt, url);
+      if (path === "/api/admin/mock/roster" && request.method === "GET")  return await adminMockRoster(request, env, cors);
+      if (path === "/api/admin/mock/student"&& request.method === "GET")  return await adminMockStudent(request, env, cors, url);
       return json({ error: "not_found" }, 404, cors);
     } catch (e) {
       return json({ error: "server_error", detail: String((e && e.message) || e) }, 500, cors);
@@ -514,6 +518,57 @@ async function adminResolveDoubt(request, env, cors) {
   const status = (b.status === "new") ? "new" : "resolved";
   await env.DB.prepare("UPDATE doubts SET status = ? WHERE id = ?").bind(status, id).run();
   return json({ ok: true }, 200, cors);
+}
+
+/* ============================== MOCK TESTS =============================== */
+
+// A signed-in student's completed mock is recorded by the mock-test site here.
+// student_id always comes from the token.
+async function mockAttempt(env, cors, student, url, request) {
+  const b = await readJson(request);
+  const testId = String(b.test_id || "").slice(0, 80);
+  const testTitle = String(b.test_title || "").slice(0, 200);
+  let score = Number(b.score); if (!isFinite(score)) score = null;
+  let total = Number(b.total); if (!isFinite(total) || total <= 0) total = null;
+  let percent = Number(b.percent);
+  if (!isFinite(percent)) percent = (score != null && total) ? Math.round((score / total) * 1000) / 10 : null;
+  if (percent != null) percent = Math.max(0, Math.min(100, percent));
+  const seconds = clampInt(b.seconds, 0, 1000000);
+  const now = Date.now();
+  await env.DB.prepare(
+    "INSERT INTO mock_attempts (student_id, test_id, test_title, score, total, percent, seconds, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  ).bind(student.id, testId, testTitle, score, total, percent, seconds, now).run();
+  return json({ ok: true }, 200, cors);
+}
+
+async function adminMockRoster(request, env, cors) {
+  if (!adminOk(request, env)) return json({ error: "forbidden" }, 403, cors);
+  const res = await env.DB.prepare(
+    `SELECT s.id, s.name, s.email, s.product,
+            COUNT(m.id) AS attempts, MAX(m.created_at) AS last_at,
+            MAX(m.percent) AS best, AVG(m.percent) AS avg
+     FROM students s LEFT JOIN mock_attempts m ON m.student_id = s.id
+     GROUP BY s.id ORDER BY last_at DESC`
+  ).all();
+  const students = (res.results || []).map(s => ({
+    id: s.id, name: s.name, email: s.email, product: s.product,
+    attempts: s.attempts || 0, lastAt: s.last_at || null,
+    best: (s.best != null) ? Math.round(s.best * 10) / 10 : null,
+    avg: (s.avg != null) ? Math.round(s.avg * 10) / 10 : null
+  }));
+  return json({ students }, 200, cors);
+}
+
+async function adminMockStudent(request, env, cors, url) {
+  if (!adminOk(request, env)) return json({ error: "forbidden" }, 403, cors);
+  const id = parseInt(url.searchParams.get("id"), 10);
+  if (!id) return json({ error: "bad_id" }, 400, cors);
+  const s = await env.DB.prepare("SELECT id, name, email, product FROM students WHERE id = ?").bind(id).first();
+  if (!s) return json({ error: "no_such_student" }, 404, cors);
+  const att = await env.DB.prepare(
+    "SELECT id, test_id, test_title, score, total, percent, seconds, created_at FROM mock_attempts WHERE student_id = ? ORDER BY created_at DESC LIMIT 100"
+  ).bind(id).all();
+  return json({ student: s, attempts: att.results || [] }, 200, cors);
 }
 
 /* ============================== HELPERS ================================== */

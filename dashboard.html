@@ -182,10 +182,39 @@
     </div>
   </section>
 
-  <!-- ===== NOTES ===== -->
+  <!-- ===== NOTES / SUBJECTS ===== -->
   <section id="v-notes" class="hide">
     <a class="back-link" id="back-notes" href="#">&larr; Home</a>
     <div class="section-title">Notes</div>
+    <div class="tiles">
+      <a class="tile" id="nav-notes-geo" href="#">
+        <span class="tile-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg></span>
+        <span class="tile-title">Geography</span>
+        <span class="tile-sub">Open</span>
+      </a>
+      <div class="tile locked">
+        <span class="tile-ic"><svg viewBox="0 0 24 24"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg></span>
+        <span class="tile-title">History</span><span class="tile-lock">Coming soon</span>
+      </div>
+      <div class="tile locked">
+        <span class="tile-ic"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg></span>
+        <span class="tile-title">Economy</span><span class="tile-lock">Coming soon</span>
+      </div>
+      <div class="tile locked">
+        <span class="tile-ic"><svg viewBox="0 0 24 24"><path d="M4 21h16M6 21V9l6-4 6 4v12M10 21v-6h4v6"/></svg></span>
+        <span class="tile-title">Politics</span><span class="tile-lock">Coming soon</span>
+      </div>
+      <div class="tile locked">
+        <span class="tile-ic"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 8a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-8V3"/></svg></span>
+        <span class="tile-title">Science</span><span class="tile-lock">Coming soon</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== NOTES / GEOGRAPHY ===== -->
+  <section id="v-notesgeo" class="hide">
+    <a class="back-link" id="back-notesgeo" href="#">&larr; Notes</a>
+    <div class="section-title">Geography Notes</div>
     <p class="muted" style="margin:-8px 0 16px;font-size:13.5px">Each topic's notes open at 6 PM the evening before its video.</p>
     <div id="notes-msg"></div>
     <div class="topic-list" id="notes-list"></div>
@@ -526,7 +555,7 @@
   }
 
   // View switching (single page, no reloads).
-  var VIEWS = ["v-home","v-lectures","v-geography","v-empty","v-notes","v-ca","v-ssb"];
+  var VIEWS = ["v-home","v-lectures","v-geography","v-empty","v-notes","v-notesgeo","v-ca","v-ssb"];
   function showView(id){
     VIEWS.forEach(function(v){ document.getElementById(v).classList.toggle("hide", v!==id); });
     window.scrollTo(0,0);
@@ -534,18 +563,18 @@
 
   // Drive folder navigation through the URL hash so the browser's back/forward
   // buttons (and the in-page back links) work normally.
-  var ROUTES = { "":"v-home", "home":"v-home", "lectures":"v-lectures", "geography":"v-geography", "notes":"v-notes", "current-affairs":"v-ca", "ssb":"v-ssb" };
+  var ROUTES = { "":"v-home", "home":"v-home", "lectures":"v-lectures", "geography":"v-geography", "notes":"v-notes", "notes-geography":"v-notesgeo", "current-affairs":"v-ca", "ssb":"v-ssb" };
   function renderRoute(){
     var h = (location.hash || "").replace(/^#/, "");
     var view = ROUTES[h] || "v-home";
-    if (view === "v-notes") loadNotes();
+    if (view === "v-notesgeo") loadNotes();
     if (view === "v-ca") loadCA();
     if (view === "v-ssb") loadSsb();
     showView(view);
     setActiveNav(view);
   }
   function setActiveNav(view){
-    var map = { "v-home":"home", "v-lectures":"lectures", "v-geography":"lectures", "v-notes":"notes", "v-ca":"current-affairs", "v-ssb":"ssb" };
+    var map = { "v-home":"home", "v-lectures":"lectures", "v-geography":"lectures", "v-notes":"notes", "v-notesgeo":"notes", "v-ca":"current-affairs", "v-ssb":"ssb" };
     var route = map[view] || "home";
     Array.prototype.forEach.call(document.querySelectorAll(".sn-link"), function(a){
       a.classList.toggle("active", a.getAttribute("data-route") === route);
@@ -558,6 +587,7 @@
   on("nav-lectures", function(){ go("lectures"); });
   on("nav-geography", function(){ go("geography"); });
   on("nav-notes", function(){ go("notes"); });
+  on("nav-notes-geo", function(){ go("notes-geography"); });
   on("nav-currentaffairs", function(){ go("current-affairs"); });
   on("nav-ssb", function(){ go("ssb"); });
   (function(){ var b = document.getElementById("ssbPractice"); if (b && window.SSB_URL) b.href = ssbHandoff(window.SSB_URL); })();
@@ -565,6 +595,7 @@
   on("back-lectures", function(){ history.back(); });
   on("back-empty", function(){ history.back(); });
   on("back-notes", function(){ history.back(); });
+  on("back-notesgeo", function(){ history.back(); });
   on("back-ca", function(){ history.back(); });
   on("back-ssb", function(){ history.back(); });
 

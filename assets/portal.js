@@ -52,6 +52,9 @@ window.EXAMS = [
 /* Word of the Day marquee: sample words slide across; the whole strip links to
    the full Word of the Day page. Edit the words and the URL freely. */
 window.WOTD_URL = "https://vocab.victhreedefence.com/wotd.html";
+// Live daily words feed (the vocab site's Word of the Day data). The dashboard card
+// reads today's words from here so it changes daily; VOCAB_WORDS below is the offline fallback.
+window.WOTD_DATA_URL = "https://vocab.victhreedefence.com/data/wotd.json";
 window.VOCAB_WORDS = [
   { w: "Alacrity",   m: "brisk, cheerful readiness" },
   { w: "Sagacious",  m: "having keen judgement" },

@@ -464,24 +464,41 @@
     document.addEventListener("keydown", function(e){ if (e.key === "Escape") shut(); });
   })();
 
-  // Word of the Day — one word at a time in a white card; changes every 5 seconds;
-  // the card links to the full Word of the Day page.
+  // Vocab of the Day — pulls TODAY's real words from the vocab site's feed so it
+  // changes daily; falls back to the built-in VOCAB_WORDS list if the feed can't load.
   (function(){
     var card = document.getElementById("wotdCard"), wEl = document.getElementById("wotdWord"), mEl = document.getElementById("wotdMean");
     if (!card || !wEl) return;
-    var words = window.VOCAB_WORDS || [];
-    if (!words.length) { card.style.display = "none"; return; }
     if (window.WOTD_URL) card.href = window.WOTD_URL;
-    var i = Math.floor(Math.random() * words.length);
     var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    function show(){
-      var it = words[i % words.length];
-      wEl.textContent = it.w || "";
-      if (mEl) mEl.textContent = it.m || "";
-      card.classList.remove("flip"); void card.offsetWidth; card.classList.add("flip");
+
+    function start(words){
+      if (!words || !words.length) { card.style.display = "none"; return; }
+      var i = Math.floor(Math.random() * words.length);
+      function show(){
+        var it = words[i % words.length];
+        wEl.textContent = it.w || "";
+        if (mEl) mEl.textContent = it.m || "";
+        card.classList.remove("flip"); void card.offsetWidth; card.classList.add("flip");
+        i++;
+      }
+      show();
+      if (!reduce && words.length > 1) setInterval(show, 5000);
     }
-    show();
-    if (!reduce) setInterval(function(){ i = (i + 1) % words.length; show(); }, 5000);
+    function fallback(){ start((window.VOCAB_WORDS || []).slice()); }
+
+    if (!window.WOTD_DATA_URL) { fallback(); return; }
+    fetch(window.WOTD_DATA_URL, { cache: "no-store" })
+      .then(function(r){ if (!r.ok) throw 0; return r.json(); })
+      .then(function(days){
+        var today = (typeof todayStr === "function") ? todayStr() : new Date().toISOString().slice(0, 10);
+        var pick = null;
+        (days || []).forEach(function(d){ if (d && d.date && d.date <= today && (!pick || d.date > pick.date)) pick = d; });
+        if (!pick && days && days.length) pick = days[0];
+        var words = ((pick && pick.words) || []).map(function(w){ return { w: w.word, m: w.meaning }; }).filter(function(x){ return x.w; });
+        if (words.length) start(words); else fallback();
+      })
+      .catch(fallback);
   })();
 
   // Full welcome message, typed out: "Welcome, <name>." + a random greeting line.

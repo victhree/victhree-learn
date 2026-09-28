@@ -41,7 +41,8 @@ const LESSONS = {
     { day: 2, title: "Volcanism and Earthquakes",        video: "22950dfc-221a-4d0c-966b-af81b0ac7e90", notes: "trial/day2.pdf" },
     { day: 3, title: "Rocks and Weathering",             video: "04e32b4a-7ad2-40c1-8981-db364c32d51d", notes: "trial/day3.pdf" },
     { day: 4, title: "Atmosphere and Rainfall",          video: "738bc535-c548-4d5d-b6e5-8e909bea67f4", notes: "trial/day4.pdf" },
-    { day: 5, title: "Winds and Jet Streams",            video: "48d597dc-2d0b-42fc-8e17-5bbdd67101fb", notes: "trial/day5.pdf" }
+    { day: 5, title: "Winds and Jet Streams",            video: "48d597dc-2d0b-42fc-8e17-5bbdd67101fb", notes: "trial/day5.pdf" },
+    { day: 6, title: "Cyclones and Indian Monsoon",      video: "4fc6f4ab-a9f6-4c5b-9cb3-917e5d4ab9ba", notes: "trial/day6.pdf" }
   ],
   // ---- The full 90-day course (product = "course") — Phase 2, fill later ----
   course: [

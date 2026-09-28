@@ -13,7 +13,8 @@ window.TOPIC_NAMES = {
   2: "Volcanism and Earthquakes",
   3: "Rocks and Weathering",
   4: "Atmosphere and Rainfall",
-  5: "Winds and Jet Streams"
+  5: "Winds and Jet Streams",
+  6: "Cyclones and Indian Monsoon"
 };
 
 // Mock-test URL for each topic's "Take the test" tab (opens the mock-test site
@@ -24,12 +25,13 @@ window.TOPIC_TESTS = {
   2: "https://victhree.github.io/victhree-mocks/test.html?test=geo-sec-02",
   3: "https://victhree.github.io/victhree-mocks/test.html?test=geo-sec-03",
   4: "https://victhree.github.io/victhree-mocks/test.html?test=geo-sec-04",
-  5: "https://victhree.github.io/victhree-mocks/test.html?test=geo-sec-05"
+  5: "https://victhree.github.io/victhree-mocks/test.html?test=geo-sec-05",
+  6: "https://victhree.github.io/victhree-mocks/test.html?test=geo-sec-06"
 };
 
 // Total topics the progress bar counts toward, per product. The full course is
 // planned at 52 videos; the trial is out of its own topics.
-window.COURSE_TOTALS = { trial: 5, course: 52 };
+window.COURSE_TOTALS = { trial: 6, course: 52 };
 
 // ---- progress (kept in this browser; a video counts once watched past 50%) ----
 function getProgress(){ try { return JSON.parse(localStorage.getItem("vt_progress") || "{}"); } catch { return {}; } }

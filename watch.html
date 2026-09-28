@@ -66,26 +66,6 @@
     });
   })();
 
-  // Drift the email watermark between positions every ~20s so it can't be cropped out.
-  (function(){
-    var wm = document.getElementById("wm");
-    if (!wm) return;
-    var spots = [
-      { bottom: "12px", left: "12px",  top: "",    right: "" },
-      { bottom: "12px", right: "12px", top: "",    left: "" },
-      { top: "50%",     left: "12px",  bottom: "", right: "" },
-      { top: "50%",     right: "12px", bottom: "", left: "" }
-    ];
-    var i = Math.floor(Math.random() * spots.length);
-    function place(){
-      var s = spots[i % spots.length];
-      wm.style.top = s.top; wm.style.right = s.right; wm.style.bottom = s.bottom; wm.style.left = s.left;
-      i++;
-    }
-    place();
-    setInterval(place, 20000);
-  })();
-
   var day = parseInt(new URLSearchParams(location.search).get("day"), 10);
   var NOTES_ICON = '<span class="tab-ic"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 16h4"/></svg></span>';
   var TEST_ICON = '<span class="tab-ic"><svg viewBox="0 0 24 24"><path d="M9 4h6v2H9z"/><path d="M15 5h3v15a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5h3"/><path d="M9 13l2 2 4-4"/></svg></span>';

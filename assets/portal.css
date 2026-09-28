@@ -173,13 +173,14 @@ input.field:focus,select.field:focus{outline:none;border-color:var(--gold);box-s
 .video-locked svg{width:44px;height:44px;color:var(--gold-soft);margin-bottom:14px}
 .video-locked .vl-main{margin:0;font-size:17px;font-weight:700;color:#fff}
 .video-locked .vl-sub{margin:6px 0 0;font-size:14px;color:var(--gold-soft)}
-.watermark{position:absolute;right:12px;bottom:12px;z-index:2;font-size:12px;color:rgba(255,255,255,.65);background:rgba(0,0,0,.32);padding:3px 9px;border-radius:6px;pointer-events:none;transition:top .6s ease,left .6s ease,right .6s ease,bottom .6s ease}
+/* email watermark, static, bottom-right (raised to clear the control bar + fs button) */
+.watermark{position:absolute;right:14px;bottom:52px;z-index:2;font-size:12px;color:rgba(255,255,255,.65);background:rgba(0,0,0,.32);padding:3px 9px;border-radius:6px;pointer-events:none}
 /* VicThree logo watermark, top-right of the player */
 .brand-wm{position:absolute;top:10px;right:12px;z-index:2;width:44px;height:auto;opacity:.55;pointer-events:none;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5))}
-/* custom full-screen button (top-left, so it clears the logo) */
-.fs-btn{position:absolute;top:10px;left:10px;z-index:3;display:flex;align-items:center;justify-content:center;
-  width:38px;height:38px;border:none;border-radius:9px;background:rgba(0,0,0,.45);color:#fff;cursor:pointer;transition:background .15s ease}
-.fs-btn:hover{background:rgba(0,0,0,.7)}
+/* our full-screen button, bottom-right, sitting over the player's own (disabled) one */
+.fs-btn{position:absolute;bottom:8px;right:8px;z-index:4;display:flex;align-items:center;justify-content:center;
+  width:42px;height:42px;border:none;border-radius:9px;background:rgba(6,17,38,.9);color:#fff;cursor:pointer;transition:background .15s ease}
+.fs-btn:hover{background:rgba(6,17,38,1)}
 .fs-btn svg{width:20px;height:20px}
 /* when the player box itself is fullscreened, fill the screen and keep both marks visible */
 .player:fullscreen{width:100vw;height:100vh;aspect-ratio:auto;border-radius:0;border:0}

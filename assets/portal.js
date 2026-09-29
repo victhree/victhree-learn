@@ -92,6 +92,13 @@ window.TOOLS = [
 // with the student's token appended, so they arrive already signed in).
 window.SSB_URL = "https://ssb.victhreedefence.com/";
 
+// Per-issue quiz links for Current Affairs. Key = the EXACT filename in the
+// current-affairs folder; value = the quiz URL on the mock-test site. The
+// "Take quiz" button appears only for issues listed here.
+window.CA_QUIZZES = {
+  // "2026-08.pdf": "https://mocks.victhreedefence.com/test.html?test=ca-2026-08",
+};
+
 // Append the login token to an SSB link so the signed-in student is recognised there.
 function ssbHandoff(url){
   try { var t = getToken(); if (!t || !url) return url || "#"; return url + "#vt=" + encodeURIComponent(t); }

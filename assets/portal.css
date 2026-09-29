@@ -104,7 +104,13 @@ input.field:focus,select.field:focus{outline:none;border-color:var(--gold);box-s
 .topic-row.done{border-left-color:var(--green)}
 .topic-row.done .tr-status{color:var(--green)}
 .topic-row.notes-only .tr-status{color:var(--gold)}
-@media(max-width:560px){.topic-row{flex-wrap:wrap}.topic-row .tr-status{width:100%;justify-content:flex-start;margin-top:2px}}
+.topic-row .tr-actions{flex:none;display:inline-flex;align-items:center;gap:8px}
+.ca-btn{font:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;text-decoration:none;
+  border:1.5px solid var(--navy);background:#fff;color:var(--navy);border-radius:8px;padding:7px 13px;transition:background .12s ease,color .12s ease}
+.ca-btn:hover{background:var(--navy);color:#fff}
+.ca-btn.quiz{border-color:var(--gold);background:var(--gold);color:var(--navy)}
+.ca-btn.quiz:hover{filter:brightness(1.05);color:var(--navy)}
+@media(max-width:560px){.topic-row{flex-wrap:wrap}.topic-row .tr-status{width:100%;justify-content:flex-start;margin-top:2px}.topic-row .tr-actions{width:100%;margin-top:6px}}
 
 /* ---- empty folder state ---- */
 .empty-state{text-align:center;padding:50px 22px;background:var(--white);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}

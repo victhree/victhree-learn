@@ -646,17 +646,43 @@
         : '<div class="empty-state"><span class="empty-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5h13v14H4z"/><path d="M17 8h3v9a2 2 0 0 1-2 2h-1z"/><path d="M7 8h7M7 11h7M7 14h5"/></svg></span><h3>No issues yet</h3><p class="muted">Monthly magazines will appear here as they are added.</p></div>';
       return;
     }
+    // Sort most-recent month first (works for "2026-08.pdf" and titles like "August 2026" / "January to March 2026").
+    var MONTHS = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+    function issueRank(it){
+      var fm = String(it.file || "").match(/(20\d{2})-(\d{2})/);
+      if (fm) return (+fm[1]) * 12 + (+fm[2]) - 1;
+      var title = String(it.title || "");
+      var ym = title.match(/20\d{2}/); var year = ym ? +ym[0] : 0;
+      var low = title.toLowerCase(); var mo = 0;
+      MONTHS.forEach(function(m, i){ if (low.indexOf(m) !== -1) mo = Math.max(mo, i); });
+      return year * 12 + mo;   // range issues rank by their latest month
+    }
+    issues.sort(function(a, b){ return issueRank(b) - issueRank(a); });
+
+    var quizzes = window.CA_QUIZZES || {};
     list.innerHTML = "";
     issues.forEach(function(it){
-      var a = document.createElement("a"); a.className = "topic-row open"; a.href = "#";
+      var row = document.createElement("div"); row.className = "topic-row";
       var main = document.createElement("span"); main.className = "tr-main";
-      var num = document.createElement("span"); num.className = "tr-num"; num.textContent = "Magazine";
+      var num = document.createElement("span"); num.className = "tr-num"; num.textContent = "Defence Digest";
       var ttl = document.createElement("span"); ttl.className = "tr-title"; ttl.textContent = it.title;
       main.appendChild(num); main.appendChild(ttl);
-      var st = document.createElement("span"); st.className = "tr-status"; st.style.color = "var(--navy)"; st.textContent = "Open PDF";
-      a.appendChild(main); a.appendChild(st);
-      a.addEventListener("click", function(e){ e.preventDefault(); openCaFile(it.file); });
-      list.appendChild(a);
+
+      var actions = document.createElement("span"); actions.className = "tr-actions";
+      var pdf = document.createElement("button"); pdf.className = "ca-btn"; pdf.type = "button"; pdf.textContent = "Open PDF";
+      pdf.addEventListener("click", function(){ openCaFile(it.file); });
+      actions.appendChild(pdf);
+
+      var quizUrl = quizzes[it.file];
+      if (quizUrl) {
+        var quiz = document.createElement("a"); quiz.className = "ca-btn quiz"; quiz.textContent = "Take quiz";
+        quiz.href = (typeof ssbHandoff === "function") ? ssbHandoff(quizUrl) : quizUrl;
+        quiz.target = "_blank"; quiz.rel = "noopener";
+        actions.appendChild(quiz);
+      }
+
+      row.appendChild(main); row.appendChild(actions);
+      list.appendChild(row);
     });
   }
 

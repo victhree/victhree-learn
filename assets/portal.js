@@ -96,7 +96,12 @@ window.SSB_URL = "https://ssb.victhreedefence.com/";
 // current-affairs folder; value = the quiz URL on the mock-test site. The
 // "Take quiz" button appears only for issues listed here.
 window.CA_QUIZZES = {
-  // "2026-08.pdf": "https://mocks.victhreedefence.com/test.html?test=ca-2026-08",
+  "January to March 2026": "https://mocks.victhreedefence.com/test.html?test=ca-01",
+  "April 2026":            "https://mocks.victhreedefence.com/test.html?test=ca-02",
+  "May 2026":              "https://mocks.victhreedefence.com/test.html?test=ca-03",
+  "June 2026":             "https://mocks.victhreedefence.com/test.html?test=ca-04",
+  "July 2026":             "https://mocks.victhreedefence.com/test.html?test=ca-05",
+  "August 2026":           "https://mocks.victhreedefence.com/test.html?test=ca-06"
 };
 
 // Append the login token to an SSB link so the signed-in student is recognised there.

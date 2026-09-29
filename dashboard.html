@@ -660,6 +660,8 @@
     issues.sort(function(a, b){ return issueRank(b) - issueRank(a); });
 
     var quizzes = window.CA_QUIZZES || {};
+    function qKey(s){ return String(s || "").toLowerCase().replace(/\.pdf$/, "").replace(/[^a-z0-9]+/g, ""); }
+    var qmap = {}; Object.keys(quizzes).forEach(function(k){ qmap[qKey(k)] = quizzes[k]; });
     list.innerHTML = "";
     issues.forEach(function(it){
       var row = document.createElement("div"); row.className = "topic-row";
@@ -673,7 +675,7 @@
       pdf.addEventListener("click", function(){ openCaFile(it.file); });
       actions.appendChild(pdf);
 
-      var quizUrl = quizzes[it.file];
+      var quizUrl = qmap[qKey(it.file)] || qmap[qKey(it.title)];
       if (quizUrl) {
         var quiz = document.createElement("a"); quiz.className = "ca-btn quiz"; quiz.textContent = "Take quiz";
         quiz.href = (typeof ssbHandoff === "function") ? ssbHandoff(quizUrl) : quizUrl;

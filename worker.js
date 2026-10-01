@@ -82,7 +82,7 @@ export default {
     try {
       if (path === "/api/request-code" && request.method === "POST") return await requestCode(request, env, cors);
       if (path === "/api/verify"       && request.method === "POST") return await verifyCode(request, env, cors);
-      if (path === "/api/me"           && request.method === "GET")  return await withAuth(request, env, cors, me);
+      if (path === "/api/me"           && request.method === "GET")  return await withAuth(request, env, cors, me, url, true);
       if (path === "/api/lessons"      && request.method === "GET")  return await withAuth(request, env, cors, lessons);
       if (path === "/api/video"        && request.method === "GET")  return await withAuth(request, env, cors, video, url);
       if (path === "/api/notes"        && request.method === "GET")  return await withAuth(request, env, cors, notes, url);
@@ -91,7 +91,9 @@ export default {
       if (path === "/api/admin/add-student" && request.method === "POST") return await adminAddStudent(request, env, cors);
       if (path === "/api/admin/students"    && request.method === "GET")  return await adminListStudents(request, env, cors);
       // ---- SSB performance tracking ----
-      if (path === "/api/ssb/attempt"       && request.method === "POST") return await withAuth(request, env, cors, ssbAttempt, url);
+      if (path === "/api/ssb/free-register" && request.method === "POST") return await ssbFreeRegister(request, env, cors);
+      if (path === "/api/ssb/allow"         && request.method === "GET")  return await withAuth(request, env, cors, ssbAllow, url, true);
+      if (path === "/api/ssb/attempt"       && request.method === "POST") return await withAuth(request, env, cors, ssbAttempt, url, true);
       if (path === "/api/ssb/me"            && request.method === "GET")  return await withAuth(request, env, cors, ssbMe, url);
       if (path === "/api/admin/ssb/roster"  && request.method === "GET")  return await adminSsbRoster(request, env, cors);
       if (path === "/api/admin/ssb/student" && request.method === "GET")  return await adminSsbStudent(request, env, cors, url);
@@ -165,26 +167,39 @@ async function verifyCode(request, env, cors) {
   return json({ token, name: student.name, product: student.product }, 200, cors);
 }
 
-// Wrap a handler so it only runs for a valid logged-in student.
-async function withAuth(request, env, cors, handler, url) {
+// Wrap a handler so it only runs for a valid principal. Course students always
+// pass; free (non-course) users pass only when allowFree is true. The handler
+// receives a user object carrying a `tier` of "course" or "free".
+async function withAuth(request, env, cors, handler, url, allowFree) {
   const auth = request.headers.get("Authorization") || "";
   const m = auth.match(/^Bearer\s+(.+)$/i);
   if (!m) return json({ error: "no_token" }, 401, cors);
-  const sid = await verifyToken(env, m[1]);
-  if (!sid) return json({ error: "bad_token" }, 401, cors);
+  const data = await verifyTokenData(env, m[1]);
+  if (!data) return json({ error: "bad_token" }, 401, cors);
 
+  // Free (non-course) user
+  if (data.tier === "free" && data.fid) {
+    if (!allowFree) return json({ error: "forbidden" }, 403, cors);
+    const fu = await env.DB.prepare("SELECT id, email, name, phone FROM free_users WHERE id = ?").bind(data.fid).first();
+    if (!fu) return json({ error: "bad_token" }, 401, cors);
+    return await handler(env, cors, { tier: "free", id: fu.id, email: fu.email, name: fu.name, phone: fu.phone }, url, request);
+  }
+
+  // Course student (verified account)
+  if (!data.sid) return json({ error: "bad_token" }, 401, cors);
   const student = await env.DB.prepare(
     "SELECT id, email, name, product, start_date, status FROM students WHERE id = ?"
-  ).bind(sid).first();
+  ).bind(data.sid).first();
   if (!student || student.status !== "active") return json({ error: "inactive" }, 403, cors);
-
+  student.tier = "course";
   return await handler(env, cors, student, url, request);
 }
 
 /* ============================== STUDENT API ============================== */
 
-async function me(env, cors, student) {
-  return json({ email: student.email, name: student.name, product: student.product }, 200, cors);
+async function me(env, cors, user) {
+  if (user.tier === "free") return json({ email: user.email, name: user.name, tier: "free" }, 200, cors);
+  return json({ email: user.email, name: user.name, product: user.product, tier: "course" }, 200, cors);
 }
 
 async function lessons(env, cors, student) {
@@ -354,12 +369,58 @@ function cleanOlqs(arr) {
 function clampInt(v, min, max) { v = parseInt(v, 10); if (isNaN(v)) return 0; return Math.max(min, Math.min(max, v)); }
 function safeArr(s) { try { const a = JSON.parse(s); return Array.isArray(a) ? a : []; } catch { return []; } }
 
-// Student (via their login token) records one completed SSB test attempt. The
-// student_id always comes from the token, never from the request body.
-async function ssbAttempt(env, cors, student, url, request) {
+// Free SSB modes (the only ones a free user may run).
+const FREE_SSB_MODES = ["PPDT", "WAT", "SRT"];
+const DAY24_MS = 24 * 3600 * 1000;
+
+// Register / look up a free (non-course) SSB user by email; issue a signed free token.
+async function ssbFreeRegister(request, env, cors) {
+  const b = await readJson(request);
+  const email = normEmail(b.email);
+  const name = String(b.name || "").trim().slice(0, 120);
+  const phone = String(b.phone || "").trim().slice(0, 24);
+  if (!email) return json({ error: "bad_email" }, 400, cors);
+  await env.DB.prepare(
+    `INSERT INTO free_users (email, name, phone, created_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(email) DO UPDATE SET name = excluded.name, phone = excluded.phone`
+  ).bind(email, name, phone, Date.now()).run();
+  const fu = await env.DB.prepare("SELECT id, name FROM free_users WHERE email = ?").bind(email).first();
+  if (!fu) return json({ error: "server_error" }, 500, cors);
+  const token = await makeFreeToken(env, fu.id);
+  return json({ token, tier: "free", name: fu.name }, 200, cors);
+}
+
+// Is this user allowed to START a test of this mode right now?
+async function ssbAllow(env, cors, user, url) {
+  const mode = String(url.searchParams.get("mode") || "").toUpperCase();
+  if (["WAT", "SRT", "SDT", "TAT", "PPDT", "GPE"].indexOf(mode) === -1) return json({ error: "bad_mode" }, 400, cors);
+  if (user.tier === "course") return json({ allowed: true, tier: "course" }, 200, cors);
+  // free tier
+  if (FREE_SSB_MODES.indexOf(mode) === -1) return json({ allowed: false, reason: "locked", tier: "free" }, 200, cors);
+  const since = Date.now() - DAY24_MS;
+  const row = await env.DB.prepare(
+    "SELECT MAX(created_at) AS last FROM ssb_free_attempts WHERE free_user_id = ? AND mode = ? AND created_at >= ?"
+  ).bind(user.id, mode, since).first();
+  if (row && row.last) {
+    return json({ allowed: false, reason: "daily_limit", retry_after_ms: Math.max(0, (row.last + DAY24_MS) - Date.now()), tier: "free" }, 200, cors);
+  }
+  return json({ allowed: true, tier: "free" }, 200, cors);
+}
+
+// Record one completed SSB test attempt. Course users also update their rolling
+// OLQ profile; free users are recorded minimally (for the per-mode/24h count).
+async function ssbAttempt(env, cors, user, url, request) {
   const b = await readJson(request);
   const mode = String(b.mode || "").toUpperCase();
   if (["WAT", "SRT", "SDT", "TAT", "PPDT", "GPE"].indexOf(mode) === -1) return json({ error: "bad_mode" }, 400, cors);
+
+  if (user.tier === "free") {
+    if (FREE_SSB_MODES.indexOf(mode) === -1) return json({ error: "locked" }, 403, cors);
+    await env.DB.prepare(
+      "INSERT INTO ssb_free_attempts (free_user_id, mode, created_at) VALUES (?, ?, ?)"
+    ).bind(user.id, mode, Date.now()).run();
+    return json({ ok: true, tier: "free" }, 200, cors);
+  }
 
   const reflected = cleanOlqs(b.reflected_keys);
   const work = cleanOlqs(b.work_keys);
@@ -374,19 +435,19 @@ async function ssbAttempt(env, cors, student, url, request) {
     `INSERT INTO ssb_attempts
        (student_id, mode, created_at, items_count, attempted_count, seconds_used, summary, reflected_keys, work_keys)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).bind(student.id, mode, now, itemsCount, attemptedCount, secondsUsed, summary, JSON.stringify(reflected), JSON.stringify(work)));
+  ).bind(user.id, mode, now, itemsCount, attemptedCount, secondsUsed, summary, JSON.stringify(reflected), JSON.stringify(work)));
 
   reflected.forEach(k => stmts.push(env.DB.prepare(
     `INSERT INTO ssb_olq_profile (student_id, olq, reflected_count, work_count, last_seen_at)
      VALUES (?, ?, 1, 0, ?)
      ON CONFLICT(student_id, olq) DO UPDATE SET reflected_count = reflected_count + 1, last_seen_at = excluded.last_seen_at`
-  ).bind(student.id, k, now)));
+  ).bind(user.id, k, now)));
 
   work.forEach(k => stmts.push(env.DB.prepare(
     `INSERT INTO ssb_olq_profile (student_id, olq, reflected_count, work_count, last_seen_at)
      VALUES (?, ?, 0, 1, ?)
      ON CONFLICT(student_id, olq) DO UPDATE SET work_count = work_count + 1, last_seen_at = excluded.last_seen_at`
-  ).bind(student.id, k, now)));
+  ).bind(user.id, k, now)));
 
   await env.DB.batch(stmts);
   return json({ ok: true, reflected, work }, 200, cors);
@@ -593,15 +654,25 @@ async function makeToken(env, sid) {
   return payload + "." + sig;
 }
 
-async function verifyToken(env, token) {
+// Free (non-course) SSB token. Carries a free_users id (fid) and tier:"free".
+async function makeFreeToken(env, fid) {
+  const payload = b64urlEncode(JSON.stringify({ fid, tier: "free", exp: Date.now() + SESSION_TTL_MS }));
+  const sig = await hmac(env.SESSION_SECRET, payload);
+  return payload + "." + sig;
+}
+
+// Verify HMAC + expiry and return the full decoded payload object (or null).
+// A valid token must carry either a course sid or a free fid.
+async function verifyTokenData(env, token) {
   const parts = String(token).split(".");
   if (parts.length !== 2) return null;
   const expected = await hmac(env.SESSION_SECRET, parts[0]);
   if (!timingSafeEqual(expected, parts[1])) return null;
   try {
     const data = JSON.parse(b64urlDecode(parts[0]));
-    if (!data.sid || !data.exp || data.exp < Date.now()) return null;
-    return data.sid;
+    if (!data.exp || data.exp < Date.now()) return null;
+    if (!data.sid && !data.fid) return null;
+    return data;
   } catch { return null; }
 }
 

@@ -91,3 +91,25 @@ CREATE TABLE IF NOT EXISTS mock_attempts (
   created_at INTEGER NOT NULL               -- ms timestamp
 );
 CREATE INDEX IF NOT EXISTS idx_mock_student ON mock_attempts(student_id, created_at);
+
+-- =============================================================================
+-- Free (non-course) SSB users. They gave name/phone/email on the SSB popup
+-- (email NOT verified). Identified by normalized email + a signed free token.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS free_users (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  email      TEXT NOT NULL UNIQUE,          -- normalized/lowercase
+  name       TEXT,
+  phone      TEXT,
+  created_at INTEGER NOT NULL
+);
+
+-- Minimal record of a free user's completed SSB attempts, for the per-mode / 24h
+-- daily limit (one PPDT + one WAT + one SRT per rolling 24h).
+CREATE TABLE IF NOT EXISTS ssb_free_attempts (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  free_user_id INTEGER NOT NULL,
+  mode         TEXT NOT NULL,               -- WAT | SRT | PPDT (allowed free modes)
+  created_at   INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ssb_free_attempts ON ssb_free_attempts(free_user_id, mode, created_at);

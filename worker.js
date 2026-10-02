@@ -711,18 +711,30 @@ async function payWebhook(request, env, cors) {
 
   let evt = null; try { evt = JSON.parse(raw); } catch { return json({ error: "bad_json" }, 400, cors); }
   const type = evt && evt.event;
-  const pay = (type === "payment.captured" || type === "order.paid")
-    ? (evt.payload && evt.payload.payment && evt.payload.payment.entity)
-    : null;
+  const P = (evt && evt.payload) || {};
+
+  // Pull the payment entity, plus the "notes" and customer details from the right
+  // place for each event. Order-based Checkout carries notes on the payment itself;
+  // a Payment Link carries them on the payment_link entity (payment.notes is empty).
+  let pay = null, notes = {}, custEmail = "", custName = "", custContact = "";
+  if (type === "payment.captured" || type === "order.paid") {
+    pay = P.payment && P.payment.entity;
+    notes = (pay && pay.notes) || {};
+  } else if (type === "payment_link.paid") {
+    pay = P.payment && P.payment.entity;
+    const link = (P.payment_link && P.payment_link.entity) || {};
+    notes = link.notes || {};
+    const cust = link.customer || {};
+    custEmail = cust.email || ""; custName = cust.name || ""; custContact = cust.contact || "";
+  }
   if (!pay || pay.status !== "captured") return json({ ok: true, ignored: type || "unknown" }, 200, cors);
 
-  const notes = pay.notes || {};
   // Prefer the product note; fall back to mapping by amount (prices are distinct).
   let product = (notes.product && PRICES.hasOwnProperty(notes.product)) ? notes.product : null;
   if (!product) product = AMOUNT_TO_PRODUCT[pay.amount] || null;
-  const email = normEmail(pay.email || notes.email);
-  const name = (String(notes.name || "").trim()) || (email ? email.split("@")[0] : "Student");
-  const contact = String(pay.contact || notes.contact || "");
+  const email = normEmail(pay.email || notes.email || custEmail);
+  const name = (String(notes.name || "").trim()) || custName || (email ? email.split("@")[0] : "Student");
+  const contact = String(pay.contact || notes.contact || custContact || "");
   const now = Date.now();
 
   // Idempotency: if this payment id is already logged, do nothing further.

@@ -9,6 +9,15 @@
 <link rel="apple-touch-icon" href="assets/shield-180.png">
 <meta name="theme-color" content="#0B1F3A">
 <link rel="stylesheet" href="assets/portal.css">
+<style>
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:14px}
+  .stat{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:#fbfcfe}
+  .stat .n{font-size:1.9rem;font-weight:800;line-height:1.1;color:#0B1F3A}
+  .stat .l{font-size:.74rem;color:#6b7a90;text-transform:uppercase;letter-spacing:.05em;margin-top:4px}
+  .stat.gold .n{color:#9a7a23}
+  .batch-ongoing td{font-weight:600}
+  .batch-done td{color:#8a97a8}
+</style>
 </head>
 <body>
 
@@ -32,6 +41,34 @@
   </div>
 
   <div id="panel" class="hide">
+
+    <!-- Control dashboard: live snapshot of enrolments and batches. -->
+    <div class="card" id="overview">
+      <h2 style="margin-bottom:4px">Control dashboard</h2>
+      <p class="muted" style="font-family:var(--sans);font-size:.9rem;margin-top:0">A live snapshot of enrolments and running batches. <a href="#" id="ov-refresh" class="hdr-action" style="font-size:.85rem">Refresh</a></p>
+      <div class="stat-grid" id="statGrid"></div>
+
+      <div style="margin-top:24px">
+        <h3 style="margin-bottom:8px">Activity on a day</h3>
+        <div class="row" style="align-items:end">
+          <div><label for="ov-date">Pick a date</label><input class="field" type="date" id="ov-date"></div>
+          <div></div>
+        </div>
+        <div id="dayView" class="muted" style="margin-top:10px">—</div>
+      </div>
+
+      <div style="margin-top:24px">
+        <h3 style="margin-bottom:8px">Batches</h3>
+        <p class="muted" style="font-family:var(--sans);font-size:.85rem;margin-top:0">Grouped by start date and product. A batch is one cohort that began Day 1 together.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Start date</th><th>Product</th><th>Students</th><th>Active</th><th>Progress</th><th>Status</th></tr></thead>
+            <tbody id="batchRows"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <div class="card">
       <h2>Add / update a student</h2>
       <p class="muted" style="font-family:var(--sans);font-size:.9rem">Adds a new paying student, or updates an existing one (use product = Full course to upgrade a trial student).</p>
@@ -101,8 +138,11 @@
     document.getElementById("keycard").classList.add("hide");
     document.getElementById("panel").classList.remove("hide");
     // default start date = today
-    var t = new Date(Date.now()+330*60000).toISOString().slice(0,10);
+    var t = todayISTStr();
     document.getElementById("s-start").value = t;
+    var ov = document.getElementById("ov-date"); ov.value = t;
+    ov.addEventListener("change", renderDayView);
+    document.getElementById("ov-refresh").addEventListener("click", function(e){ e.preventDefault(); loadStudents(); });
     loadStudents();
     loadSsbRoster();
   }
@@ -133,16 +173,102 @@
     else { show("addmsg","err","Could not save (" + (r.data && r.data.error || r.status) + ")."); }
   });
 
+  var _students = [];
+
   async function loadStudents(){
     var r = await adminApi("/api/admin/students");
     var rows = document.getElementById("rows");
     if (!r.ok){ rows.innerHTML = '<tr><td colspan="6" class="muted">Could not load.</td></tr>'; return; }
-    if (!r.data.students.length){ rows.innerHTML = '<tr><td colspan="6" class="muted">No students yet.</td></tr>'; return; }
-    rows.innerHTML = r.data.students.map(function(s){
+    _students = (r.data && r.data.students) || [];
+    renderOverview();
+    if (!_students.length){ rows.innerHTML = '<tr><td colspan="6" class="muted">No students yet.</td></tr>'; return; }
+    rows.innerHTML = _students.map(function(s){
       return '<tr><td>'+esc(s.name)+'</td><td>'+esc(s.email)+'</td>'+
         '<td><span class="pill '+(s.product==="course"?"course":"trial")+'">'+(s.product==="course"?"Course":"Trial")+'</span></td>'+
         '<td>'+esc(s.start_date)+'</td><td>'+s.currentDay+' / '+s.totalDays+'</td><td>'+esc(s.status)+'</td></tr>';
     }).join("");
+  }
+
+  // ---- Control dashboard ----
+  function istDate(ms){ return new Date((Number(ms)||0) + 330*60000).toISOString().slice(0,10); }
+  function todayISTStr(){ return istDate(Date.now()); }
+
+  function renderOverview(){
+    var s = _students;
+    var active = s.filter(function(x){ return x.status==="active"; });
+    var trial  = active.filter(function(x){ return x.product!=="course"; });
+    var course = active.filter(function(x){ return x.product==="course"; });
+    var today = todayISTStr();
+    var newToday = s.filter(function(x){ return istDate(x.created_at)===today; });
+
+    // Batches = cohorts grouped by (start date + product).
+    var groups = {};
+    s.forEach(function(x){
+      var key = x.start_date+"|"+x.product;
+      if (!groups[key]) groups[key] = { start:x.start_date, product:x.product, total:0, active:0, currentDay:x.currentDay, totalDays:x.totalDays };
+      groups[key].total++;
+      if (x.status==="active") groups[key].active++;
+    });
+    var batches = Object.keys(groups).map(function(k){ return groups[k]; });
+    var running = batches.filter(function(b){ return b.active>0 && b.currentDay>=1 && b.currentDay<b.totalDays; });
+
+    var tiles = [
+      ["Total students", s.length, ""],
+      ["Active", active.length, ""],
+      ["Trial (active)", trial.length, ""],
+      ["Full course (active)", course.length, "gold"],
+      ["Enrolled today", newToday.length, ""],
+      ["Batches running", running.length, ""]
+    ];
+    document.getElementById("statGrid").innerHTML = tiles.map(function(t){
+      return '<div class="stat '+t[2]+'"><div class="n">'+t[1]+'</div><div class="l">'+t[0]+'</div></div>';
+    }).join("");
+
+    batches.sort(function(a,b){ return a.start<b.start?1:(a.start>b.start?-1:(a.product<b.product?-1:1)); });
+    var brows = document.getElementById("batchRows");
+    if (!batches.length){ brows.innerHTML = '<tr><td colspan="6" class="muted">No batches yet.</td></tr>'; }
+    else brows.innerHTML = batches.map(function(b){
+      var status, cls="";
+      if (b.currentDay<=0){ status="Upcoming"; }
+      else if (b.currentDay>=b.totalDays){ status="Completed"; cls="batch-done"; }
+      else { status="Running"; cls="batch-ongoing"; }
+      return '<tr class="'+cls+'">'+
+        '<td>'+esc(b.start)+'</td>'+
+        '<td><span class="pill '+(b.product==="course"?"course":"trial")+'">'+(b.product==="course"?"Course":"Trial")+'</span></td>'+
+        '<td>'+b.total+'</td>'+
+        '<td>'+b.active+'</td>'+
+        '<td>'+(b.currentDay<=0?'<span class="muted">not started</span>':('Day '+b.currentDay+' / '+b.totalDays))+'</td>'+
+        '<td>'+status+'</td>'+
+      '</tr>';
+    }).join("");
+
+    renderDayView();
+  }
+
+  function renderDayView(){
+    var d = document.getElementById("ov-date").value || todayISTStr();
+    var enrolled = _students.filter(function(x){ return istDate(x.created_at)===d; });
+    var starting = _students.filter(function(x){ return x.start_date===d; });
+    var et = enrolled.filter(function(x){ return x.product!=="course"; }).length;
+    var ec = enrolled.filter(function(x){ return x.product==="course"; }).length;
+
+    var html = '<p style="margin:0 0 6px"><strong>Enrolled on '+esc(d)+':</strong> '+enrolled.length+' total — '+et+' trial, '+ec+' full course.</p>';
+    if (enrolled.length){
+      html += '<ul style="margin:4px 0 12px;padding-left:18px;font-size:.9rem">'+enrolled.map(function(x){
+        return '<li>'+esc(x.name)+' <span class="muted">('+(x.product==="course"?"Course":"Trial")+')</span></li>';
+      }).join("")+'</ul>';
+    }
+    html += '<p style="margin:0"><strong>Batches starting '+esc(d)+':</strong> ';
+    if (!starting.length){ html += '<span class="muted">none</span>'; }
+    else {
+      var st = starting.filter(function(x){ return x.product!=="course"; }).length;
+      var sc = starting.filter(function(x){ return x.product==="course"; }).length;
+      html += [sc?(sc+' full-course student'+(sc===1?"":"s")):"", st?(st+' trial student'+(st===1?"":"s")):""].filter(Boolean).join(", ");
+    }
+    html += '</p>';
+    var box = document.getElementById("dayView");
+    box.classList.remove("muted");
+    box.innerHTML = html;
   }
 
   function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }

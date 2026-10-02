@@ -73,7 +73,7 @@ const NOTES_LEAD_MS = 13 * 3600 * 1000;  // notes open 6 PM the evening before t
 --------------------------------------------------------------------------- */
 const PRICES = {
   trial:   99900,  // ₹999    — Geography trial (6 days), drips from the payment date
-  hero:   399900,  // ₹3,999  — self-paced full course, drips from the payment date
+  hero:   299900,  // ₹2,999  — self-paced full course, drips from the payment date
   elite:  849900,  // ₹8,499  — full course, live batch (starts COURSE_BATCH_START)
   legend:1199900   // ₹11,999 — full course, live batch; same portal content as elite
 };

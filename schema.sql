@@ -113,3 +113,23 @@ CREATE TABLE IF NOT EXISTS ssb_free_attempts (
   created_at   INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_ssb_free_attempts ON ssb_free_attempts(free_user_id, mode, created_at);
+
+-- =============================================================================
+-- Razorpay payments. One row per captured payment (from the signed webhook).
+-- Used to auto-enrol the student and to show revenue on the admin dashboard.
+-- payment_id is UNIQUE so a re-delivered webhook can't enrol or count twice.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS payments (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  payment_id  TEXT UNIQUE,                   -- Razorpay payment id (dedupe key)
+  order_id    TEXT,
+  email       TEXT,
+  name        TEXT,
+  contact     TEXT,
+  amount      INTEGER,                        -- in paise
+  currency    TEXT,
+  product     TEXT,                           -- 'trial' or 'course'
+  status      TEXT,                           -- 'captured'
+  created_at  INTEGER NOT NULL                -- ms timestamp
+);
+CREATE INDEX IF NOT EXISTS idx_payments_created ON payments(created_at);

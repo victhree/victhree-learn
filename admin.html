@@ -144,6 +144,7 @@
     ov.addEventListener("change", renderDayView);
     document.getElementById("ov-refresh").addEventListener("click", function(e){ e.preventDefault(); loadStudents(); });
     loadStudents();
+    loadPayments();
     loadSsbRoster();
   }
 
@@ -174,6 +175,13 @@
   });
 
   var _students = [];
+  var _payments = [];
+
+  async function loadPayments(){
+    var r = await adminApi("/api/admin/payments");
+    _payments = (r.ok && r.data && r.data.payments) || [];
+    renderOverview();
+  }
 
   async function loadStudents(){
     var r = await adminApi("/api/admin/students");
@@ -212,13 +220,21 @@
     var batches = Object.keys(groups).map(function(k){ return groups[k]; });
     var running = batches.filter(function(b){ return b.active>0 && b.currentDay>=1 && b.currentDay<b.totalDays; });
 
+    var monthPrefix = today.slice(0,7);
+    var paidToday = _payments.filter(function(p){ return istDate(p.created_at)===today; });
+    var paidMonth = _payments.filter(function(p){ return istDate(p.created_at).slice(0,7)===monthPrefix; });
+    var rupeesToday = paidToday.reduce(function(a,p){ return a + (Number(p.amount)||0); },0)/100;
+    var rupeesMonth = paidMonth.reduce(function(a,p){ return a + (Number(p.amount)||0); },0)/100;
+
     var tiles = [
       ["Total students", s.length, ""],
       ["Active", active.length, ""],
       ["Trial (active)", trial.length, ""],
       ["Full course (active)", course.length, "gold"],
       ["Enrolled today", newToday.length, ""],
-      ["Batches running", running.length, ""]
+      ["Batches running", running.length, ""],
+      ["Collected today", "₹" + rupeesToday.toLocaleString("en-IN"), "gold"],
+      ["Collected this month", "₹" + rupeesMonth.toLocaleString("en-IN"), "gold"]
     ];
     document.getElementById("statGrid").innerHTML = tiles.map(function(t){
       return '<div class="stat '+t[2]+'"><div class="n">'+t[1]+'</div><div class="l">'+t[0]+'</div></div>';
@@ -266,6 +282,9 @@
       html += [sc?(sc+' full-course student'+(sc===1?"":"s")):"", st?(st+' trial student'+(st===1?"":"s")):""].filter(Boolean).join(", ");
     }
     html += '</p>';
+    var paid = _payments.filter(function(p){ return istDate(p.created_at)===d; });
+    var paidSum = paid.reduce(function(a,p){ return a + (Number(p.amount)||0); },0)/100;
+    html += '<p style="margin:8px 0 0"><strong>Collected on '+esc(d)+':</strong> ₹'+paidSum.toLocaleString("en-IN")+' from '+paid.length+' payment'+(paid.length===1?"":"s")+'.</p>';
     var box = document.getElementById("dayView");
     box.classList.remove("muted");
     box.innerHTML = html;

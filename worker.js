@@ -59,6 +59,24 @@ const SESSION_TTL_MS = 30 * 24 * 3600 * 1000; // login lasts 30 days
 const VIDEO_TOKEN_TTL_S = 300;           // signed video URL valid 5 minutes
 const NOTES_LEAD_MS = 13 * 3600 * 1000;  // notes open 6 PM the evening before the 7 AM video (13 h earlier)
 
+/* ---- Razorpay / auto-enrolment config -------------------------------------
+   PRICES: the amount charged per product, in PAISE, set here on the server so
+   the browser can never tamper with the price (₹999 = 99900). Update when your
+   prices change.
+   COURSE_BATCH_START: the fixed Day-1 date (IST, YYYY-MM-DD) that every FULL-
+   COURSE buyer joins. Change this each time you open a new batch. Trial buyers
+   always start on their payment date.
+   Secrets to set in Cloudflare (Settings -> Variables and Secrets):
+     RAZORPAY_KEY_ID        (Variable is fine; it is a publishable id)
+     RAZORPAY_KEY_SECRET    (Secret)
+     RAZORPAY_WEBHOOK_SECRET(Secret; the webhook signing secret you set in Razorpay)
+--------------------------------------------------------------------------- */
+const PRICES = {
+  trial:  99900,   // ₹999
+  course: 0        // TODO: set the full-course price in paise (e.g. ₹14,999 => 1499900)
+};
+const COURSE_BATCH_START = "2026-11-01"; // TODO: set the next full-course batch Day 1 (IST)
+
 // The 15 canonical Officer-Like Qualities. The SSB analysis reports strengths and
 // weak points using ONLY these keys, so they can be tallied per student over time.
 const OLQ_KEYS = [
@@ -105,6 +123,10 @@ export default {
       if (path === "/api/mock/attempt"      && request.method === "POST") return await withAuth(request, env, cors, mockAttempt, url);
       if (path === "/api/admin/mock/roster" && request.method === "GET")  return await adminMockRoster(request, env, cors);
       if (path === "/api/admin/mock/student"&& request.method === "GET")  return await adminMockStudent(request, env, cors, url);
+      // ---- Razorpay payments / auto-enrolment ----
+      if (path === "/api/pay/order"         && request.method === "POST") return await payOrder(request, env, cors);
+      if (path === "/api/pay/webhook"       && request.method === "POST") return await payWebhook(request, env, cors);
+      if (path === "/api/admin/payments"    && request.method === "GET")  return await adminPayments(request, env, cors);
       return json({ error: "not_found" }, 404, cors);
     } catch (e) {
       return json({ error: "server_error", detail: String((e && e.message) || e) }, 500, cors);
@@ -633,6 +655,97 @@ async function adminMockStudent(request, env, cors, url) {
   return json({ student: s, attempts: att.results || [] }, 200, cors);
 }
 
+/* ============================ RAZORPAY PAYMENTS ========================== */
+
+// Called from the landing page BEFORE opening Razorpay Checkout. The browser
+// sends only {product, name, email, contact}; the PRICE is decided here on the
+// server from PRICES, so it cannot be tampered with. We create a Razorpay order
+// carrying the product + buyer details in its notes, and return the order id so
+// the page can open Checkout. The actual enrolment happens later in the webhook.
+async function payOrder(request, env, cors) {
+  const b = await readJson(request);
+  const product = (b.product === "course") ? "course" : (b.product === "trial" ? "trial" : null);
+  if (!product) return json({ error: "bad_product" }, 400, cors);
+  const amount = PRICES[product];
+  if (!amount || amount < 100) return json({ error: "price_not_set" }, 500, cors);
+  const email = normEmail(b.email);
+  const name = String(b.name || "").trim().slice(0, 120);
+  const contact = String(b.contact || "").trim().slice(0, 20);
+  if (!email || !name) return json({ error: "missing_details" }, 400, cors);
+
+  const auth = "Basic " + btoa(env.RAZORPAY_KEY_ID + ":" + env.RAZORPAY_KEY_SECRET);
+  const res = await fetch("https://api.razorpay.com/v1/orders", {
+    method: "POST",
+    headers: { "Authorization": auth, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      amount, currency: "INR", receipt: "vt_" + Date.now(),
+      notes: { product, name, email, contact }
+    })
+  });
+  const order = await res.json().catch(() => null);
+  if (!res.ok || !order || !order.id) {
+    return json({ error: "order_failed", detail: (order && order.error && order.error.description) || res.status }, 502, cors);
+  }
+  return json({ orderId: order.id, amount, currency: "INR", keyId: env.RAZORPAY_KEY_ID, product, name, email, contact }, 200, cors);
+}
+
+// Razorpay calls this (server-to-server) on every event. We verify the HMAC
+// signature against RAZORPAY_WEBHOOK_SECRET, then act only on a captured payment:
+// log it (idempotently) and enrol/upgrade the student. Everything else is acked.
+async function payWebhook(request, env, cors) {
+  const raw = await request.text();
+  const sig = request.headers.get("X-Razorpay-Signature") || "";
+  const expected = await hmacHex(env.RAZORPAY_WEBHOOK_SECRET, raw);
+  if (!sig || !timingSafeEqual(expected, sig)) return json({ error: "bad_signature" }, 401, cors);
+
+  let evt = null; try { evt = JSON.parse(raw); } catch { return json({ error: "bad_json" }, 400, cors); }
+  const type = evt && evt.event;
+  const pay = (type === "payment.captured" || type === "order.paid")
+    ? (evt.payload && evt.payload.payment && evt.payload.payment.entity)
+    : null;
+  if (!pay || pay.status !== "captured") return json({ ok: true, ignored: type || "unknown" }, 200, cors);
+
+  const notes = pay.notes || {};
+  const product = (notes.product === "course") ? "course" : "trial";
+  const email = normEmail(pay.email || notes.email);
+  const name = (String(notes.name || "").trim()) || (email ? email.split("@")[0] : "Student");
+  const contact = String(pay.contact || notes.contact || "");
+  if (!email) return json({ ok: true, skipped: "no_email" }, 200, cors);
+  const now = Date.now();
+
+  // Idempotency: if this payment id is already logged, do nothing further.
+  const seen = await env.DB.prepare("SELECT id FROM payments WHERE payment_id = ?").bind(pay.id).first();
+  if (seen) return json({ ok: true, duplicate: true }, 200, cors);
+
+  await env.DB.prepare(
+    "INSERT INTO payments (payment_id, order_id, email, name, contact, amount, currency, product, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)"
+  ).bind(pay.id, pay.order_id || null, email, name, contact, pay.amount || 0, pay.currency || "INR", product, "captured", now).run();
+
+  // Enrol or upgrade. Never downgrade an existing full-course student to trial.
+  const existing = await env.DB.prepare("SELECT product FROM students WHERE email = ?").bind(email).first();
+  if (existing && existing.product === "course" && product === "trial") {
+    await env.DB.prepare("UPDATE students SET status = 'active' WHERE email = ?").bind(email).run();
+  } else {
+    const startDate = (product === "course") ? COURSE_BATCH_START : todayIST();
+    await env.DB.prepare(
+      `INSERT INTO students (email, name, product, status, start_date, created_at)
+       VALUES (?, ?, ?, 'active', ?, ?)
+       ON CONFLICT(email) DO UPDATE SET
+         name = excluded.name, product = excluded.product, status = 'active', start_date = excluded.start_date`
+    ).bind(email, name, product, startDate, now).run();
+  }
+  return json({ ok: true, enrolled: email, product }, 200, cors);
+}
+
+// Admin: recent payments, for the revenue view on the control dashboard.
+async function adminPayments(request, env, cors) {
+  if (!adminOk(request, env)) return json({ error: "forbidden" }, 403, cors);
+  const { results } = await env.DB.prepare(
+    "SELECT payment_id, email, name, amount, currency, product, created_at FROM payments ORDER BY created_at DESC LIMIT 1000"
+  ).all();
+  return json({ payments: results || [] }, 200, cors);
+}
+
 /* ============================== HELPERS ================================== */
 
 function unlockTime(startDate, dayNum) {
@@ -727,6 +840,15 @@ async function hmac(secret, msg) {
   );
   const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(msg));
   return b64urlFromBytes(new Uint8Array(sig));
+}
+
+// Same HMAC-SHA256 but hex-encoded (Razorpay signs webhooks as a hex digest).
+async function hmacHex(secret, msg) {
+  const key = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(secret || ""), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(msg));
+  return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
 function timingSafeEqual(a, b) {

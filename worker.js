@@ -72,9 +72,20 @@ const NOTES_LEAD_MS = 13 * 3600 * 1000;  // notes open 6 PM the evening before t
      RAZORPAY_WEBHOOK_SECRET(Secret; the webhook signing secret you set in Razorpay)
 --------------------------------------------------------------------------- */
 const PRICES = {
-  trial:  99900,   // ₹999
-  course: 0        // TODO: set the full-course price in paise (e.g. ₹14,999 => 1499900)
+  trial:   99900,  // ₹999    — Geography trial (6 days), drips from the payment date
+  hero:   399900,  // ₹3,999  — self-paced full course, drips from the payment date
+  elite:  849900,  // ₹8,499  — full course, live batch (starts COURSE_BATCH_START)
+  legend:1199900   // ₹11,999 — full course, live batch; same portal content as elite
 };
+// Upgrade protection: a later, lower-tier payment never downgrades a higher tier.
+const PRODUCT_RANK = { trial: 1, hero: 2, elite: 3, legend: 4 };
+// Reverse lookup, so the webhook can still map a payment to a product by its amount
+// if the product note is missing (prices are distinct, so this is unambiguous).
+const AMOUNT_TO_PRODUCT = {}; Object.keys(PRICES).forEach(function (k) { AMOUNT_TO_PRODUCT[PRICES[k]] = k; });
+// Which lesson set a product sees: the trial has its own; all paid tiers share "course".
+function contentKey(product) { return product === "trial" ? "trial" : "course"; }
+// Live full-course batches (standard/premium) start here; trial & self-paced start on
+// the payment date. CHANGE this each time you open a new batch.
 const COURSE_BATCH_START = "2026-11-01"; // TODO: set the next full-course batch Day 1 (IST)
 
 // The 15 canonical Officer-Like Qualities. The SSB analysis reports strengths and
@@ -225,7 +236,7 @@ async function me(env, cors, user) {
 }
 
 async function lessons(env, cors, student) {
-  const list = LESSONS[student.product] || [];
+  const list = LESSONS[contentKey(student.product)] || [];
   const now = Date.now();
   const out = list.map(l => {
     const videoUnlockAt = l.open ? 0 : unlockTime(student.start_date, l.day);
@@ -244,7 +255,7 @@ async function lessons(env, cors, student) {
 
 async function video(env, cors, student, url) {
   const day = parseInt(url.searchParams.get("day"), 10);
-  const lesson = (LESSONS[student.product] || []).find(l => l.day === day);
+  const lesson = (LESSONS[contentKey(student.product)] || []).find(l => l.day === day);
   if (!lesson) return json({ error: "no_such_day" }, 404, cors);
 
   const videoUnlockAt = lesson.open ? 0 : unlockTime(student.start_date, lesson.day);
@@ -270,7 +281,7 @@ async function video(env, cors, student, url) {
 
 async function notes(env, cors, student, url) {
   const day = parseInt(url.searchParams.get("day"), 10);
-  const lesson = (LESSONS[student.product] || []).find(l => l.day === day);
+  const lesson = (LESSONS[contentKey(student.product)] || []).find(l => l.day === day);
   if (!lesson || !lesson.notes) return json({ error: "no_notes" }, 404, cors);
 
   // Notes open 6 PM the evening before the video (13 h earlier); "open" topics are always available.
@@ -344,7 +355,7 @@ async function adminAddStudent(request, env, cors) {
   const b = await readJson(request);
   const email = normEmail(b.email);
   const name = String(b.name || "").trim();
-  const product = (b.product === "course") ? "course" : "trial";
+  const product = PRICES.hasOwnProperty(b.product) ? b.product : "trial";
   const startDate = /^\d{4}-\d{2}-\d{2}$/.test(b.startDate || "") ? b.startDate : todayIST();
   if (!email || !name) return json({ error: "bad_input" }, 400, cors);
 
@@ -368,7 +379,7 @@ async function adminListStudents(request, env, cors) {
   ).all();
   const now = Date.now();
   const rows = (results || []).map(s => {
-    const total = (LESSONS[s.product] || []).length;
+    const total = (LESSONS[contentKey(s.product)] || []).length;
     let currentDay = 0;
     for (let d = 1; d <= total; d++) if (now >= unlockTime(s.start_date, d)) currentDay = d;
     return { ...s, currentDay, totalDays: total };
@@ -554,7 +565,7 @@ async function askDoubt(env, cors, student, url, request) {
   let day = parseInt(b.day, 10); if (isNaN(day)) day = null;
   let topic = null;
   if (day != null) {
-    const l = (LESSONS[student.product] || []).find(x => x.day === day);
+    const l = (LESSONS[contentKey(student.product)] || []).find(x => x.day === day);
     topic = l ? l.title : null;
   }
   const now = Date.now();
@@ -664,7 +675,7 @@ async function adminMockStudent(request, env, cors, url) {
 // the page can open Checkout. The actual enrolment happens later in the webhook.
 async function payOrder(request, env, cors) {
   const b = await readJson(request);
-  const product = (b.product === "course") ? "course" : (b.product === "trial" ? "trial" : null);
+  const product = PRICES.hasOwnProperty(b.product) ? b.product : null;
   if (!product) return json({ error: "bad_product" }, 400, cors);
   const amount = PRICES[product];
   if (!amount || amount < 100) return json({ error: "price_not_set" }, 500, cors);
@@ -706,27 +717,35 @@ async function payWebhook(request, env, cors) {
   if (!pay || pay.status !== "captured") return json({ ok: true, ignored: type || "unknown" }, 200, cors);
 
   const notes = pay.notes || {};
-  const product = (notes.product === "course") ? "course" : "trial";
+  // Prefer the product note; fall back to mapping by amount (prices are distinct).
+  let product = (notes.product && PRICES.hasOwnProperty(notes.product)) ? notes.product : null;
+  if (!product) product = AMOUNT_TO_PRODUCT[pay.amount] || null;
   const email = normEmail(pay.email || notes.email);
   const name = (String(notes.name || "").trim()) || (email ? email.split("@")[0] : "Student");
   const contact = String(pay.contact || notes.contact || "");
-  if (!email) return json({ ok: true, skipped: "no_email" }, 200, cors);
   const now = Date.now();
 
   // Idempotency: if this payment id is already logged, do nothing further.
   const seen = await env.DB.prepare("SELECT id FROM payments WHERE payment_id = ?").bind(pay.id).first();
   if (seen) return json({ ok: true, duplicate: true }, 200, cors);
 
+  // Always log the payment (even if we can't resolve a product) so it shows on the dashboard.
   await env.DB.prepare(
     "INSERT INTO payments (payment_id, order_id, email, name, contact, amount, currency, product, status, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)"
-  ).bind(pay.id, pay.order_id || null, email, name, contact, pay.amount || 0, pay.currency || "INR", product, "captured", now).run();
+  ).bind(pay.id, pay.order_id || null, email, name, contact, pay.amount || 0, pay.currency || "INR", product || "unknown", "captured", now).run();
 
-  // Enrol or upgrade. Never downgrade an existing full-course student to trial.
+  // Only auto-enrol when we know the product AND the email. Otherwise leave it for
+  // manual handling (the payment is still visible on the dashboard).
+  if (!email || !product) return json({ ok: true, logged: true, enrolled: false, reason: !email ? "no_email" : "unknown_product" }, 200, cors);
+
+  // Full-course live tiers start on the batch date; trial & self-paced start today.
+  const startDate = (product === "elite" || product === "legend") ? COURSE_BATCH_START : todayIST();
+
+  // Enrol or upgrade, but never downgrade a higher tier the buyer already holds.
   const existing = await env.DB.prepare("SELECT product FROM students WHERE email = ?").bind(email).first();
-  if (existing && existing.product === "course" && product === "trial") {
+  if (existing && (PRODUCT_RANK[existing.product] || 0) > (PRODUCT_RANK[product] || 0)) {
     await env.DB.prepare("UPDATE students SET status = 'active' WHERE email = ?").bind(email).run();
   } else {
-    const startDate = (product === "course") ? COURSE_BATCH_START : todayIST();
     await env.DB.prepare(
       `INSERT INTO students (email, name, product, status, start_date, created_at)
        VALUES (?, ?, ?, 'active', ?, ?)

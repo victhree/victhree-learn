@@ -81,8 +81,10 @@
         <div>
           <label for="s-product">Product</label>
           <select class="field" id="s-product">
-            <option value="trial">₹999 Geography trial</option>
-            <option value="course">Full 90-day course</option>
+            <option value="trial">Trial — ₹999</option>
+            <option value="hero">Hero (self-paced) — ₹3,999</option>
+            <option value="elite">Elite — ₹8,499</option>
+            <option value="legend">Legend — ₹11,999</option>
           </select>
         </div>
         <div><label for="s-start">Start date (Day 1)</label><input class="field" id="s-start" type="date"></div>
@@ -192,7 +194,7 @@
     if (!_students.length){ rows.innerHTML = '<tr><td colspan="6" class="muted">No students yet.</td></tr>'; return; }
     rows.innerHTML = _students.map(function(s){
       return '<tr><td>'+esc(s.name)+'</td><td>'+esc(s.email)+'</td>'+
-        '<td><span class="pill '+(s.product==="course"?"course":"trial")+'">'+(s.product==="course"?"Course":"Trial")+'</span></td>'+
+        '<td><span class="pill '+prodPill(s.product)+'">'+esc(prodLabel(s.product))+'</span></td>'+
         '<td>'+esc(s.start_date)+'</td><td>'+s.currentDay+' / '+s.totalDays+'</td><td>'+esc(s.status)+'</td></tr>';
     }).join("");
   }
@@ -200,12 +202,14 @@
   // ---- Control dashboard ----
   function istDate(ms){ return new Date((Number(ms)||0) + 330*60000).toISOString().slice(0,10); }
   function todayISTStr(){ return istDate(Date.now()); }
+  var PROD_LABEL = { trial:"Trial", hero:"Hero", elite:"Elite", legend:"Legend" };
+  function prodLabel(p){ return PROD_LABEL[p] || (p||"—"); }
+  function prodPill(p){ return p==="trial" ? "trial" : "course"; }
 
   function renderOverview(){
     var s = _students;
     var active = s.filter(function(x){ return x.status==="active"; });
-    var trial  = active.filter(function(x){ return x.product!=="course"; });
-    var course = active.filter(function(x){ return x.product==="course"; });
+    function byProd(code){ return active.filter(function(x){ return x.product===code; }).length; }
     var today = todayISTStr();
     var newToday = s.filter(function(x){ return istDate(x.created_at)===today; });
 
@@ -229,8 +233,10 @@
     var tiles = [
       ["Total students", s.length, ""],
       ["Active", active.length, ""],
-      ["Trial (active)", trial.length, ""],
-      ["Full course (active)", course.length, "gold"],
+      ["Trial", byProd("trial"), ""],
+      ["Hero (self-paced)", byProd("hero"), ""],
+      ["Elite", byProd("elite"), "gold"],
+      ["Legend", byProd("legend"), "gold"],
       ["Enrolled today", newToday.length, ""],
       ["Batches running", running.length, ""],
       ["Collected today", "₹" + rupeesToday.toLocaleString("en-IN"), "gold"],
@@ -250,7 +256,7 @@
       else { status="Running"; cls="batch-ongoing"; }
       return '<tr class="'+cls+'">'+
         '<td>'+esc(b.start)+'</td>'+
-        '<td><span class="pill '+(b.product==="course"?"course":"trial")+'">'+(b.product==="course"?"Course":"Trial")+'</span></td>'+
+        '<td><span class="pill '+prodPill(b.product)+'">'+esc(prodLabel(b.product))+'</span></td>'+
         '<td>'+b.total+'</td>'+
         '<td>'+b.active+'</td>'+
         '<td>'+(b.currentDay<=0?'<span class="muted">not started</span>':('Day '+b.currentDay+' / '+b.totalDays))+'</td>'+
@@ -265,23 +271,20 @@
     var d = document.getElementById("ov-date").value || todayISTStr();
     var enrolled = _students.filter(function(x){ return istDate(x.created_at)===d; });
     var starting = _students.filter(function(x){ return x.start_date===d; });
-    var et = enrolled.filter(function(x){ return x.product!=="course"; }).length;
-    var ec = enrolled.filter(function(x){ return x.product==="course"; }).length;
+    function breakdown(list){
+      return ["trial","hero","elite","legend"].map(function(code){
+        var n = list.filter(function(x){ return x.product===code; }).length;
+        return n ? (n+" "+prodLabel(code)) : "";
+      }).filter(Boolean).join(", ") || "none";
+    }
 
-    var html = '<p style="margin:0 0 6px"><strong>Enrolled on '+esc(d)+':</strong> '+enrolled.length+' total — '+et+' trial, '+ec+' full course.</p>';
+    var html = '<p style="margin:0 0 6px"><strong>Enrolled on '+esc(d)+':</strong> '+enrolled.length+' total'+(enrolled.length?(' — '+breakdown(enrolled)):'')+'.</p>';
     if (enrolled.length){
       html += '<ul style="margin:4px 0 12px;padding-left:18px;font-size:.9rem">'+enrolled.map(function(x){
-        return '<li>'+esc(x.name)+' <span class="muted">('+(x.product==="course"?"Course":"Trial")+')</span></li>';
+        return '<li>'+esc(x.name)+' <span class="muted">('+esc(prodLabel(x.product))+')</span></li>';
       }).join("")+'</ul>';
     }
-    html += '<p style="margin:0"><strong>Batches starting '+esc(d)+':</strong> ';
-    if (!starting.length){ html += '<span class="muted">none</span>'; }
-    else {
-      var st = starting.filter(function(x){ return x.product!=="course"; }).length;
-      var sc = starting.filter(function(x){ return x.product==="course"; }).length;
-      html += [sc?(sc+' full-course student'+(sc===1?"":"s")):"", st?(st+' trial student'+(st===1?"":"s")):""].filter(Boolean).join(", ");
-    }
-    html += '</p>';
+    html += '<p style="margin:0"><strong>Batches starting '+esc(d)+':</strong> '+(starting.length?breakdown(starting):'<span class="muted">none</span>')+'</p>';
     var paid = _payments.filter(function(p){ return istDate(p.created_at)===d; });
     var paidSum = paid.reduce(function(a,p){ return a + (Number(p.amount)||0); },0)/100;
     html += '<p style="margin:8px 0 0"><strong>Collected on '+esc(d)+':</strong> ₹'+paidSum.toLocaleString("en-IN")+' from '+paid.length+' payment'+(paid.length===1?"":"s")+'.</p>';

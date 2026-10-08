@@ -113,6 +113,13 @@ const SSB_DAILY = { WAT: 5, SRT: 5 }; // every day
 const SSB_TAT_EVERY = 7;              // TAT once a week
 const SSB_SDT_EVERY = 14;             // SDT once a fortnight
 
+// Shared SSB analysis engine (Gemini lives only inside it). Weekly analysis is a
+// server-to-server call authed with env.ENGINE_SHARED_SECRET (a Worker secret —
+// never hardcoded here). Content banks are static JSON on the SSB Pages site.
+const ENGINE_BASE = "https://victhree-ssb-ai.anmolxsharma.workers.dev";
+// The data path the github.io URL redirects to (skip the redirect hop).
+const SSB_DATA_BASE = "https://ssb.victhreedefence.com/data";
+
 // Only mentored tiers get the tracked SSB dashboard; Hero/trial use the open site.
 function isMentored(user) { return !!user && (user.product === "elite" || user.product === "legend"); }
 
@@ -154,8 +161,10 @@ export default {
       if (path === "/api/ssb/attempt"       && request.method === "POST") return await withAuth(request, env, cors, ssbAttempt, url, true);
       if (path === "/api/ssb/me"            && request.method === "GET")  return await withAuth(request, env, cors, ssbMe, url);
       if (path === "/api/ssb/challenge/today" && request.method === "GET") return await withAuth(request, env, cors, ssbChallengeToday, url);
+      if (path === "/api/ssb/dashboard"     && request.method === "GET")  return await withAuth(request, env, cors, ssbDashboard, url);
       if (path === "/api/admin/ssb/roster"  && request.method === "GET")  return await adminSsbRoster(request, env, cors);
       if (path === "/api/admin/ssb/student" && request.method === "GET")  return await adminSsbStudent(request, env, cors, url);
+      if (path === "/api/admin/ssb/run-weekly" && request.method === "POST") return await adminRunWeekly(request, env, cors, url);
       // ---- student doubts ----
       if (path === "/api/doubt"             && request.method === "POST") return await withAuth(request, env, cors, askDoubt, url);
       if (path === "/api/admin/doubts"      && request.method === "GET")  return await adminListDoubts(request, env, cors, url);
@@ -171,6 +180,18 @@ export default {
       return json({ error: "not_found" }, 404, cors);
     } catch (e) {
       return json({ error: "server_error", detail: String((e && e.message) || e) }, 500, cors);
+    }
+  },
+
+  // Cron Trigger (set a weekly schedule in the dashboard, e.g. Mon 03:00 IST =
+  // "30 21 * * 0"): generate last week's report for every active Elite/Legend student.
+  async scheduled(event, env, ctx) {
+    const { fromMs, toMs } = lastCompletedWeekIST(Date.now());
+    const studs = await env.DB.prepare(
+      "SELECT id, name FROM students WHERE status = 'active' AND product IN ('elite','legend')"
+    ).all();
+    for (const s of (studs.results || [])) {
+      try { await generateWeekly(env, s, fromMs, toMs); } catch (e) { /* skip this student, continue */ }
     }
   }
 };
@@ -431,6 +452,7 @@ function cleanOlqs(arr) {
 }
 function clampInt(v, min, max) { v = parseInt(v, 10); if (isNaN(v)) return 0; return Math.max(min, Math.min(max, v)); }
 function safeArr(s) { try { const a = JSON.parse(s); return Array.isArray(a) ? a : []; } catch { return []; } }
+function safeObj(s) { try { const o = JSON.parse(s); return (o && typeof o === "object" && !Array.isArray(o)) ? o : null; } catch { return null; } }
 
 // Red flags: serious integrity / disqualifying concerns from an SSB attempt.
 // Kept as short, non-empty strings and capped so a bad payload can't bloat the row.
@@ -505,14 +527,31 @@ async function ssbAttempt(env, cors, user, url, request) {
   const itemsCount = clampInt(b.items_count, 0, 200);
   const attemptedCount = clampInt(b.attempted_count, 0, 200);
   const secondsUsed = clampInt(b.seconds_used, 0, 1000000);
+  // Dashboard tracking data (present for course students from the SSB engine).
+  const metrics = (b.metrics && typeof b.metrics === "object" && !Array.isArray(b.metrics)) ? b.metrics : null;
+  const perItem = Array.isArray(b.per_item) ? b.per_item.slice(0, 60) : [];
   const now = Date.now();
 
-  const stmts = [];
-  stmts.push(env.DB.prepare(
+  // Insert the session row first so we have its id to attach per-item rows.
+  const ins = await env.DB.prepare(
     `INSERT INTO ssb_attempts
-       (student_id, mode, created_at, items_count, attempted_count, seconds_used, summary, reflected_keys, work_keys, red_flags)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).bind(user.id, mode, now, itemsCount, attemptedCount, secondsUsed, summary, JSON.stringify(reflected), JSON.stringify(work), JSON.stringify(redFlags)));
+       (student_id, mode, created_at, items_count, attempted_count, seconds_used, summary, reflected_keys, work_keys, red_flags, metrics)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(user.id, mode, now, itemsCount, attemptedCount, secondsUsed, summary,
+         JSON.stringify(reflected), JSON.stringify(work), JSON.stringify(redFlags),
+         metrics ? JSON.stringify(metrics) : null).run();
+  const sessionId = (ins && ins.meta) ? ins.meta.last_row_id : null;
+
+  const stmts = [];
+
+  // Store every response + its structured per-item analysis.
+  perItem.forEach((pi, i) => {
+    const n = clampInt((pi && pi.n != null) ? pi.n : (i + 1), 0, 1000);
+    const resp = String((pi && pi.response) || "").slice(0, 2000);
+    stmts.push(env.DB.prepare(
+      "INSERT INTO ssb_items (session_id, student_id, mode, n, response, analysis, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    ).bind(sessionId, user.id, mode, n, resp, JSON.stringify(pi || {}), now));
+  });
 
   reflected.forEach(k => stmts.push(env.DB.prepare(
     `INSERT INTO ssb_olq_profile (student_id, olq, reflected_count, work_count, last_seen_at)
@@ -526,8 +565,8 @@ async function ssbAttempt(env, cors, user, url, request) {
      ON CONFLICT(student_id, olq) DO UPDATE SET work_count = work_count + 1, last_seen_at = excluded.last_seen_at`
   ).bind(user.id, k, now)));
 
-  await env.DB.batch(stmts);
-  return json({ ok: true, reflected, work, red_flags: redFlags }, 200, cors);
+  if (stmts.length) await env.DB.batch(stmts);
+  return json({ ok: true, reflected, work, red_flags: redFlags, stored: true }, 200, cors);
 }
 
 // Build a student's SSB picture: rolling OLQ profile, recent attempts, and the
@@ -628,16 +667,183 @@ async function adminSsbStudent(request, env, cors, url) {
   const s = await env.DB.prepare("SELECT id, name, email, product FROM students WHERE id = ?").bind(id).first();
   if (!s) return json({ error: "no_such_student" }, 404, cors);
   const data = await ssbProfileFor(env, id, true);
-  return json({ student: s, ...data }, 200, cors);
+  // Latest weekly admin report (full technical breakdown), if any.
+  const wk = await env.DB.prepare(
+    "SELECT week_start, admin_report, created_at FROM ssb_weekly_reports WHERE student_id = ? ORDER BY week_start DESC LIMIT 1"
+  ).bind(id).first();
+  const weekly = wk ? { weekStart: wk.week_start, report: safeObj(wk.admin_report), createdAt: wk.created_at } : null;
+  return json({ student: s, ...data, weekly }, 200, cors);
 }
 
-// SSB dashboard — today's structured set for a mentored student. Scaffolding:
-// returns WHAT is due today (dripped from the course start). Items + submission
-// are wired in Phase 1 once the content source + engine contract are confirmed.
+// Pull a static content bank (cached at the edge). Returns [] on any failure.
+async function fetchBank(name) {
+  try {
+    const res = await fetch(SSB_DATA_BASE + "/" + name + ".json", { cf: { cacheTtl: 3600, cacheEverything: true } });
+    if (!res.ok) return [];
+    const a = await res.json();
+    return Array.isArray(a) ? a : [];
+  } catch { return []; }
+}
+// Deterministic pick of `count` items starting at a seed offset (stable per day).
+function pickN(arr, count, seed) {
+  const out = [], len = arr.length;
+  if (!len) return out;
+  const start = ((seed % len) + len) % len;
+  for (let i = 0; i < count && i < len; i++) out.push(arr[(start + i) % len]);
+  return out;
+}
+
+// SSB dashboard — today's structured set for a mentored student: WHAT is due
+// (dripped from course start) PLUS the actual items from the shared content bank,
+// selected deterministically per day. `focus_olqs` is exposed for feedback-
+// emphasis targeting (v1); item-level OLQ selection is Phase 2.
 async function ssbChallengeToday(env, cors, user) {
   if (!isMentored(user)) return json({ error: "mentored_only" }, 403, cors);
   const plan = ssbChallengePlan(user.start_date);
-  return json({ tier: user.product, startDate: user.start_date, plan, itemsReady: false }, 200, cors);
+  if (!plan.available) return json({ tier: user.product, startDate: user.start_date, plan, items: null, itemsReady: false }, 200, cors);
+
+  const di = plan.dayIndex;
+  const [wat, srt] = await Promise.all([fetchBank("wat"), fetchBank("srt")]);
+  const items = {
+    WAT: pickN(wat, SSB_DAILY.WAT, (di - 1) * SSB_DAILY.WAT).map(x => ({ id: x.id, word: x.word, type: x.type })),
+    SRT: pickN(srt, SSB_DAILY.SRT, (di - 1) * SSB_DAILY.SRT).map(x => ({ id: x.id, tag: x.tag, situation: x.situation }))
+  };
+  if (di % SSB_TAT_EVERY === 0) {
+    const tat = await fetchBank("tat");
+    items.TAT = pickN(tat, 1, di).map(x => ({ id: x.id, image_url: x.image_url }));
+  }
+  if (di % SSB_SDT_EVERY === 0) {
+    const sdt = await fetchBank("sdt");
+    items.SDT = pickN(sdt, 1, di).map(x => ({ id: x.id, prompt: x.prompt }));
+  }
+
+  const prof = await env.DB.prepare(
+    "SELECT olq, reflected_count, work_count FROM ssb_olq_profile WHERE student_id = ?"
+  ).bind(user.id).all();
+  const focus = (prof.results || [])
+    .filter(p => (p.work_count || 0) > 0)
+    .sort((a, b) => (b.work_count - a.work_count) || (a.reflected_count - b.reflected_count))
+    .slice(0, 3).map(p => p.olq);
+
+  return json({ tier: user.product, startDate: user.start_date, plan, items, focus_olqs: focus, itemsReady: true }, 200, cors);
+}
+
+/* ----- Weekly report (shared engine, server-to-server) ----- */
+
+// Call the shared SSB engine's weekly analysis with the shared secret.
+async function engineWeekly(env, payload) {
+  const res = await fetch(ENGINE_BASE + "/analyze/weekly", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Engine-Key": env.ENGINE_SHARED_SECRET || "" },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error("engine_weekly_" + res.status);
+  return await res.json();
+}
+
+// Build + store a student's weekly report for [fromMs, toMs). Sends the week's
+// already-analysed sessions (metrics + per_item) so the engine reasons over the
+// week, not raw responses. Returns the engine output, or null if no sessions.
+async function generateWeekly(env, student, fromMs, toMs) {
+  const att = await env.DB.prepare(
+    `SELECT id, mode, created_at, items_count, attempted_count, seconds_used,
+            summary, reflected_keys, work_keys, red_flags, metrics
+     FROM ssb_attempts WHERE student_id = ? AND created_at >= ? AND created_at < ?
+     ORDER BY created_at ASC`
+  ).bind(student.id, fromMs, toMs).all();
+  const rows = att.results || [];
+  if (!rows.length) return null;
+
+  const it = await env.DB.prepare(
+    `SELECT session_id, n, response, analysis FROM ssb_items
+     WHERE student_id = ? AND created_at >= ? AND created_at < ? ORDER BY session_id, n`
+  ).bind(student.id, fromMs, toMs).all();
+  const itemsBySession = {};
+  (it.results || []).forEach(r => {
+    (itemsBySession[r.session_id] = itemsBySession[r.session_id] || [])
+      .push(safeObj(r.analysis) || { n: r.n, response: r.response });
+  });
+
+  const sessions = rows.map(a => ({
+    mode: a.mode, createdAt: a.created_at,
+    items_count: a.items_count, attempted_count: a.attempted_count, seconds_used: a.seconds_used,
+    summary: a.summary, reflected_keys: safeArr(a.reflected_keys), work_keys: safeArr(a.work_keys),
+    red_flags: safeArr(a.red_flags), metrics: safeObj(a.metrics), per_item: itemsBySession[a.id] || []
+  }));
+
+  const prof = await env.DB.prepare(
+    "SELECT olq, reflected_count, work_count, last_seen_at FROM ssb_olq_profile WHERE student_id = ?"
+  ).bind(student.id).all();
+
+  const out = await engineWeekly(env, {
+    student: { id: String(student.id), name: student.name || "" },
+    window: { from: new Date(fromMs).toISOString(), to: new Date(toMs).toISOString() },
+    olq_profile: prof.results || [],
+    sessions
+  });
+
+  await env.DB.prepare(
+    `INSERT INTO ssb_weekly_reports (student_id, week_start, student_report, admin_report, created_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(student_id, week_start) DO UPDATE SET
+       student_report = excluded.student_report, admin_report = excluded.admin_report, created_at = excluded.created_at`
+  ).bind(student.id, istDateStr(fromMs), JSON.stringify(out.studentReport || null), JSON.stringify(out.adminReport || null), Date.now()).run();
+  return out;
+}
+
+// Student SSB dashboard (mentored): a simple trajectory + friendly trend
+// indicators + the latest plain-language weekly report. No red flags, no OLQ
+// jargon — those live in the admin view only.
+async function ssbDashboard(env, cors, user) {
+  if (!isMentored(user)) return json({ error: "mentored_only" }, 403, cors);
+  const now = Date.now();
+  const att = await env.DB.prepare(
+    `SELECT mode, created_at, items_count, attempted_count, metrics
+     FROM ssb_attempts WHERE student_id = ? ORDER BY created_at DESC LIMIT 60`
+  ).bind(user.id).all();
+  const rows = att.results || [];
+  const sessions = rows.map(a => ({ mode: a.mode, at: a.created_at, items: a.items_count, attempted: a.attempted_count }));
+
+  // Friendly this-week vs last-week trends (only when both weeks have data).
+  const weekMs = 7 * DAY_MS;
+  const thisWeek = rows.filter(a => a.created_at >= now - weekMs);
+  const prevWeek = rows.filter(a => a.created_at >= now - 2 * weekMs && a.created_at < now - weekMs);
+  const agg = (list, pick) => list.reduce((acc, a) => {
+    const m = safeObj(a.metrics); const v = m ? pick(m) : null;
+    return (v == null || isNaN(v)) ? acc : { s: acc.s + Number(v), n: acc.n + 1 };
+  }, { s: 0, n: 0 });
+  const trends = [];
+  const tTry = agg(thisWeek, m => m.try_count), pTry = agg(prevWeek, m => m.try_count);
+  if (tTry.n && pTry.n) trends.push({ label: "'try' usage", from: pTry.s, to: tTry.s, lowerIsBetter: true });
+  const tSrt = agg(thisWeek, m => m.srt_completion_rate), pSrt = agg(prevWeek, m => m.srt_completion_rate);
+  if (tSrt.n && pSrt.n) trends.push({ label: "SRT completion", unit: "%", higherIsBetter: true, from: Math.round(pSrt.s / pSrt.n * 100), to: Math.round(tSrt.s / tSrt.n * 100) });
+
+  const wk = await env.DB.prepare(
+    "SELECT week_start, student_report, created_at FROM ssb_weekly_reports WHERE student_id = ? ORDER BY week_start DESC LIMIT 1"
+  ).bind(user.id).first();
+  const weekly = wk ? { weekStart: wk.week_start, report: safeObj(wk.student_report), createdAt: wk.created_at } : null;
+
+  return json({ tier: user.product, totalSessions: rows.length, sessions, trends, weekly }, 200, cors);
+}
+
+// Admin: manually (re)generate last week's report — for one student (?id=) or all
+// active Elite/Legend students. Lets Anmol trigger a report without waiting for Cron.
+async function adminRunWeekly(request, env, cors, url) {
+  if (!adminOk(request, env)) return json({ error: "forbidden" }, 403, cors);
+  const { fromMs, toMs } = lastCompletedWeekIST(Date.now());
+  const id = parseInt(url.searchParams.get("id"), 10);
+  if (id) {
+    const s = await env.DB.prepare("SELECT id, name FROM students WHERE id = ?").bind(id).first();
+    if (!s) return json({ error: "no_such_student" }, 404, cors);
+    const out = await generateWeekly(env, s, fromMs, toMs);
+    return json({ ok: true, generated: out ? 1 : 0, week: istDateStr(fromMs) }, 200, cors);
+  }
+  const studs = await env.DB.prepare(
+    "SELECT id, name FROM students WHERE status = 'active' AND product IN ('elite','legend')"
+  ).all();
+  let n = 0;
+  for (const s of (studs.results || [])) { try { if (await generateWeekly(env, s, fromMs, toMs)) n++; } catch (e) { /* skip */ } }
+  return json({ ok: true, generated: n, week: istDateStr(fromMs) }, 200, cors);
 }
 
 /* ============================== DOUBTS API =============================== */
@@ -876,6 +1082,16 @@ function unlockTime(startDate, dayNum) {
 function todayIST() {
   const nowIST = new Date(Date.now() + 330 * 60000); // shift into IST
   return nowIST.toISOString().slice(0, 10);
+}
+// The IST calendar date ('YYYY-MM-DD') for a given ms timestamp.
+function istDateStr(ms) { return new Date((Number(ms) || 0) + 330 * 60000).toISOString().slice(0, 10); }
+// The most-recently completed Monday→Monday week in IST, as [fromMs, toMs).
+function lastCompletedWeekIST(nowMs) {
+  const ist = new Date((nowMs || Date.now()) + 330 * 60000);
+  const dow = (ist.getUTCDay() + 6) % 7; // Monday = 0
+  const istMidnightShifted = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate());
+  const toMs = (istMidnightShifted - dow * DAY_MS) - 330 * 60000; // this week's Monday 00:00 IST, real UTC
+  return { fromMs: toMs - 7 * DAY_MS, toMs };
 }
 
 async function makeToken(env, sid) {

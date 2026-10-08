@@ -139,40 +139,28 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE INDEX IF NOT EXISTS idx_payments_created ON payments(created_at);
 
 -- =============================================================================
--- SSB DASHBOARD (Elite / Legend only) — structured daily challenge + tracking.
--- Separate from the lean ssb_attempts table (which the open SSB site still uses).
--- The `metrics` / `analysis` / report columns hold JSON from the shared SSB
--- analysis engine; their exact shape is finalised with the SSB engine contract.
+-- SSB DASHBOARD (Elite / Legend only) — tracking layer on the shared engine.
+-- Capture flows through the EXISTING POST /api/ssb/attempt: for a signed-in
+-- course student the SSB browser now also sends `metrics` + `per_item`, which
+-- the engine produced. We store metrics on the attempt (the session row) and
+-- each per_item response in ssb_items. No separate sessions table is needed —
+-- ssb_attempts IS the per-session record.
 -- =============================================================================
 
--- One row per completed daily challenge set (a day's WAT/SRT/TAT/SDT batch).
-CREATE TABLE IF NOT EXISTS ssb_sessions (
-  id              INTEGER PRIMARY KEY AUTOINCREMENT,
-  student_id      INTEGER NOT NULL,
-  day_index       INTEGER,                    -- challenge day (1 = course start date)
-  mode            TEXT NOT NULL,              -- WAT | SRT | TAT | SDT
-  created_at      INTEGER NOT NULL,
-  metrics         TEXT,                       -- JSON: engine session-level metrics
-  summary         TEXT,
-  reflected_keys  TEXT,                       -- JSON array of OLQ keys
-  work_keys       TEXT,                       -- JSON array of OLQ keys
-  red_flags       TEXT,                       -- JSON array (usually [])
-  items_count     INTEGER NOT NULL DEFAULT 0,
-  attempted_count INTEGER NOT NULL DEFAULT 0,
-  seconds_used    INTEGER NOT NULL DEFAULT 0
-);
-CREATE INDEX IF NOT EXISTS idx_ssb_sessions_student ON ssb_sessions(student_id, created_at);
+-- ssb_attempts gains a metrics column (engine session-level metrics, JSON).
+-- Migration for an EXISTING database (run once; harmless error if it exists):
+--   ALTER TABLE ssb_attempts ADD COLUMN metrics TEXT;
 
--- One row per individual response within a session (every stimulus + answer +
--- its structured per-item analysis from the engine).
+-- One row per individual response within an attempt (the answer + its structured
+-- per-item analysis from the engine). session_id references ssb_attempts.id.
 CREATE TABLE IF NOT EXISTS ssb_items (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  session_id  INTEGER NOT NULL,
+  session_id  INTEGER NOT NULL,               -- ssb_attempts.id
   student_id  INTEGER NOT NULL,
   mode        TEXT,
-  prompt      TEXT,                           -- the stimulus (word / situation / image ref)
-  response    TEXT,                           -- the student's answer
-  analysis    TEXT,                           -- JSON: engine per_item entry
+  n           INTEGER,                         -- item index within the session
+  response    TEXT,                            -- the student's answer
+  analysis    TEXT,                            -- JSON: engine per_item entry
   created_at  INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_ssb_items_session ON ssb_items(session_id);
@@ -188,14 +176,4 @@ CREATE TABLE IF NOT EXISTS ssb_weekly_reports (
   admin_report   TEXT,                        -- JSON: full technical breakdown
   created_at     INTEGER NOT NULL,
   UNIQUE(student_id, week_start)
-);
-
--- Per-student challenge state: how far the drip has progressed and the OLQs to
--- target next (feedback-emphasis in v1; item-level selection in Phase 2).
-CREATE TABLE IF NOT EXISTS ssb_challenge_state (
-  student_id         INTEGER PRIMARY KEY,
-  start_date         TEXT,                    -- = the student's course start_date
-  last_day_completed INTEGER NOT NULL DEFAULT 0,
-  focus_olqs         TEXT,                    -- JSON array of OLQ keys to emphasise next
-  updated_at         INTEGER
 );

@@ -693,18 +693,9 @@ function pickN(arr, count, seed) {
   return out;
 }
 
-/* ----- Phase 2: OLQ-aware item selection (uses the banks' existing tags) ----- */
+/* ----- Phase 2: real per-item OLQ-tagged selection (each item has `olqs`) ----- */
 
-// Which OLQs each SRT theme exercises (gatekeepers noted). Lets us steer the
-// day's SRTs toward a student's weakest qualities without re-tagging content.
-const SRT_TAG_OLQS = {
-  EMERGENCY:     ["courage", "speed_of_decision", "initiative"],
-  ETHICAL:       ["sense_of_responsibility"],            // gatekeeper (moral)
-  INTERPERSONAL: ["social_adaptability"],                // gatekeeper
-  TEAM:          ["cooperation"],                        // gatekeeper
-  PERSONAL:      ["self_confidence", "determination"],
-  BIND:          ["reasoning_ability", "speed_of_decision", "determination"]
-};
+const TARGET_FRACTION = 0.65; // ~65% of the daily set targets the student's weak OLQs
 
 // A student's weak OLQs, gatekeepers first, then by how often flagged "to work on".
 function weakOlqsPrioritized(profileRows) {
@@ -720,40 +711,27 @@ function weakOlqsPrioritized(profileRows) {
     .map(p => p.olq);
 }
 
-// SRT themes that cover the given weak OLQs, in priority order.
-function targetTagsFor(weakOlqs) {
-  const tags = [];
-  (weakOlqs || []).forEach(olq => {
-    Object.keys(SRT_TAG_OLQS).forEach(tag => {
-      if (SRT_TAG_OLQS[tag].indexOf(olq) !== -1 && tags.indexOf(tag) === -1) tags.push(tag);
-    });
-  });
-  return tags;
-}
-
-// Pick `count` WATs as a deliberate valence mix (loaded N / positive P / neutral X).
-function selectWat(wat, count, seed) {
+// WAT variety fill: a deliberate valence mix (loaded N / positive P / neutral X).
+function watVariety(wat, count, seed) {
   const buckets = { P: [], N: [], X: [] };
   wat.forEach(w => { if (buckets[w.type]) buckets[w.type].push(w); });
-  const plan = [["N", 2], ["P", 2], ["X", 1]]; // mix leaning slightly to loaded words
+  const plan = [["N", 2], ["P", 2], ["X", 1]];
   const out = [], seen = new Set();
   plan.forEach(pc => pickN(buckets[pc[0]] || [], pc[1], seed * 3).forEach(w => { if (!seen.has(w.id)) { seen.add(w.id); out.push(w); } }));
   if (out.length < count) pickN(wat, count, seed * 7).forEach(w => { if (out.length < count && !seen.has(w.id)) { seen.add(w.id); out.push(w); } });
   return out.slice(0, count);
 }
 
-// Pick `count` SRTs, biased toward the themes that hit the student's weak OLQs,
-// then filled for breadth. Deterministic per day; shifts as the profile changes.
-function selectSrt(srt, count, seed, weakOlqs) {
+// SRT variety fill: spread across the situation themes for breadth.
+function srtVariety(srt, count, seed) {
   const byTag = {};
-  srt.forEach(x => { (byTag[x.tag] = byTag[x.tag] || []).push(x); });
-  let order = targetTagsFor(weakOlqs).filter(t => byTag[t] && byTag[t].length);
-  Object.keys(byTag).forEach(t => { if (order.indexOf(t) === -1) order.push(t); }); // breadth
-  if (!order.length) return pickN(srt, count, seed);
+  srt.forEach(x => { (byTag[x.tag || "_"] = byTag[x.tag || "_"] || []).push(x); });
+  const tags = Object.keys(byTag);
+  if (!tags.length) return pickN(srt, count, seed);
   const out = [], used = new Set();
   let ti = 0, guard = 0;
-  while (out.length < count && guard < count * order.length + 20) {
-    const bucket = byTag[order[ti % order.length]];
+  while (out.length < count && guard < count * tags.length + 20) {
+    const bucket = byTag[tags[ti % tags.length]];
     const start = ((seed % bucket.length) + bucket.length) % bucket.length;
     for (let k = 0; k < bucket.length; k++) {
       const cand = bucket[(start + k) % bucket.length];
@@ -764,10 +742,45 @@ function selectSrt(srt, count, seed, weakOlqs) {
   return out.slice(0, count);
 }
 
+// Real per-item OLQ-tagged selection: ~TARGET_FRACTION of `count` items are drawn
+// to cover the student's weakest OLQs (round-robin across them in priority order so
+// it never narrows to one), the rest filled by `varietyPick`. Fallbacks keep the
+// daily set always complete: no weak OLQs / too few matches -> pure variety; a final
+// top-up guarantees `count` items. Deterministic per day; shifts with the profile.
+function selectByOlq(bank, count, seed, weak, varietyPick) {
+  const picked = [], used = new Set();
+  const targetCount = weak.length ? Math.round(count * TARGET_FRACTION) : 0;
+
+  let pass = 0;
+  while (picked.length < targetCount && pass < count + 3) {
+    let progressed = false;
+    for (let i = 0; i < weak.length && picked.length < targetCount; i++) {
+      const olq = weak[i];
+      const cands = bank.filter(it => !used.has(it.id) && Array.isArray(it.olqs) && it.olqs.indexOf(olq) !== -1);
+      if (!cands.length) continue;
+      const idx = (((seed + pass) % cands.length) + cands.length) % cands.length;
+      const ch = cands[idx];
+      used.add(ch.id); picked.push(ch); progressed = true;
+    }
+    pass++;
+    if (!progressed) break;
+  }
+
+  if (picked.length < count) {
+    varietyPick(bank.filter(it => !used.has(it.id)), count - picked.length, seed)
+      .forEach(it => { if (picked.length < count && !used.has(it.id)) { used.add(it.id); picked.push(it); } });
+  }
+  if (picked.length < count) {
+    pickN(bank.filter(it => !used.has(it.id)), count - picked.length, seed + 13)
+      .forEach(it => { if (picked.length < count) { used.add(it.id); picked.push(it); } });
+  }
+  return picked.slice(0, count);
+}
+
 // SSB dashboard — today's structured set for a mentored student: WHAT is due
 // (dripped from course start) PLUS the actual items from the shared content bank.
-// Phase 2: WATs are a deliberate valence mix, and SRTs are steered toward the
-// student's weakest gatekeeper OLQs (via the banks' existing theme tags). Stable
+// Phase 2 (real per-item OLQ tags): WAT and SRT are selected so ~65% of items
+// cover the student's weakest OLQs (gatekeepers first), the rest varied. Stable
 // per day; shifts as the profile changes.
 async function ssbChallengeToday(env, cors, user) {
   if (!isMentored(user)) return json({ error: "mentored_only" }, 403, cors);
@@ -776,7 +789,7 @@ async function ssbChallengeToday(env, cors, user) {
 
   const di = plan.dayIndex;
 
-  // Weakest OLQs (gatekeepers first) drive both the SRT selection and the emphasis.
+  // Weakest OLQs (gatekeepers first) drive the item selection and the emphasis.
   const prof = await env.DB.prepare(
     "SELECT olq, reflected_count, work_count FROM ssb_olq_profile WHERE student_id = ?"
   ).bind(user.id).all();
@@ -784,9 +797,11 @@ async function ssbChallengeToday(env, cors, user) {
   const focus = weak.slice(0, 3);
 
   const [wat, srt] = await Promise.all([fetchBank("wat"), fetchBank("srt")]);
+  const watSel = selectByOlq(wat, SSB_DAILY.WAT, di, weak, watVariety);
+  const srtSel = selectByOlq(srt, SSB_DAILY.SRT, di, weak, srtVariety);
   const items = {
-    WAT: selectWat(wat, SSB_DAILY.WAT, di).map(x => ({ id: x.id, word: x.word, type: x.type })),
-    SRT: selectSrt(srt, SSB_DAILY.SRT, di, weak).map(x => ({ id: x.id, tag: x.tag, situation: x.situation }))
+    WAT: watSel.map(x => ({ id: x.id, word: x.word, type: x.type, olqs: x.olqs || [] })),
+    SRT: srtSel.map(x => ({ id: x.id, tag: x.tag, situation: x.situation, olqs: x.olqs || [] }))
   };
   if (di % SSB_TAT_EVERY === 0) {
     const tat = await fetchBank("tat");
@@ -797,10 +812,10 @@ async function ssbChallengeToday(env, cors, user) {
     items.SDT = pickN(sdt, 1, di).map(x => ({ id: x.id, prompt: x.prompt }));
   }
 
-  // What today's SRT set is aimed at (the weak OLQs its chosen themes cover).
-  const srtTags = Array.from(new Set(items.SRT.map(s => s.tag)));
-  const targeting = Array.from(new Set(srtTags.reduce((acc, t) => acc.concat(SRT_TAG_OLQS[t] || []), [])
-    .filter(olq => focus.indexOf(olq) !== -1)));
+  // Which weak OLQs today's selected items actually cover (transparency).
+  const covered = new Set();
+  watSel.concat(srtSel).forEach(it => (it.olqs || []).forEach(o => { if (focus.indexOf(o) !== -1) covered.add(o); }));
+  const targeting = Array.from(covered);
 
   return json({ tier: user.product, startDate: user.start_date, plan, items, focus_olqs: focus, targeting, itemsReady: true }, 200, cors);
 }

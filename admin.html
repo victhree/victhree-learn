@@ -305,7 +305,7 @@
     if (!withData.length){ rows.innerHTML = '<tr><td colspan="5" class="muted">No SSB tests tracked yet.</td></tr>'; return; }
     rows.innerHTML = withData.map(function(s){
       return '<tr>'+
-        '<td>'+esc(s.name)+'<div class="muted" style="font-size:.8rem">'+esc(s.email)+'</div></td>'+
+        '<td>'+esc(s.name)+(s.redFlag?' <span class="pill" style="background:#fdeaea;color:#b23b2e;border-color:#f0b4b4">⚑ Red flag</span>':'')+'<div class="muted" style="font-size:.8rem">'+esc(s.email)+'</div></td>'+
         '<td>'+s.attempts+'</td>'+
         '<td>'+(s.topWeak?esc(olqLabel(s.topWeak)):'<span class="muted">—</span>')+'</td>'+
         '<td>'+(s.lastAt?esc(fmtDate(s.lastAt)):'<span class="muted">—</span>')+'</td>'+
@@ -331,15 +331,22 @@
       '</tbody></table>') : '<p class="muted">No qualities recorded yet.</p>';
     var attempts = (d.attempts || []).map(function(a){
       var chips = (a.work||[]).map(function(k){ return esc(olqLabel(k)); }).join(", ");
-      return '<div style="border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:10px">'+
+      var flags = a.redFlags || [];
+      var border = flags.length ? '#d9534f' : 'var(--line)';
+      return '<div style="border:1px solid '+border+';border-radius:10px;padding:11px 13px;margin-bottom:10px">'+
         '<div style="display:flex;justify-content:space-between;gap:10px"><strong>'+esc(ssbModeName(a.mode))+'</strong>'+
         '<span class="muted" style="font-size:.85rem">'+esc(fmtDate(a.createdAt))+'</span></div>'+
+        (flags.length?'<p style="margin:6px 0 0;font-size:.85rem;color:#b23b2e;font-weight:700">⚑ Red flags: '+flags.map(function(f){return esc(f);}).join("; ")+'</p>':'')+
         (a.summary?'<p style="margin:6px 0 0;font-size:.9rem;color:#33435c">'+esc(a.summary)+'</p>':'')+
         (chips?'<p style="margin:6px 0 0;font-size:.82rem" class="muted">To work on: '+chips+'</p>':'')+
       '</div>';
     }).join("") || '<p class="muted">No tests yet.</p>';
+    var rfBanner = (d.redFlagCount > 0)
+      ? '<div class="msg err" style="margin:10px 0">⚑ '+d.redFlagCount+' attempt'+(d.redFlagCount===1?"":"s")+' with red flags. Review the highlighted tests below.</div>'
+      : '';
     box.innerHTML = '<h3 style="margin-bottom:4px">'+esc(s.name||"")+'</h3>'+
       '<p class="muted" style="font-size:.85rem;margin-top:0">'+esc(s.email||"")+' · '+d.total+' test'+(d.total===1?"":"s")+'</p>'+
+      rfBanner +
       '<p style="margin:10px 0 2px"><strong>Focus areas:</strong> '+focus+'</p>'+
       olqTable +
       '<h4 style="margin:16px 0 8px">Recent tests</h4>'+ attempts;

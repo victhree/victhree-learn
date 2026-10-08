@@ -402,6 +402,19 @@ function cleanOlqs(arr) {
 function clampInt(v, min, max) { v = parseInt(v, 10); if (isNaN(v)) return 0; return Math.max(min, Math.min(max, v)); }
 function safeArr(s) { try { const a = JSON.parse(s); return Array.isArray(a) ? a : []; } catch { return []; } }
 
+// Red flags: serious integrity / disqualifying concerns from an SSB attempt.
+// Kept as short, non-empty strings and capped so a bad payload can't bloat the row.
+function cleanRedFlags(arr) {
+  if (!Array.isArray(arr)) return [];
+  const out = [];
+  for (const x of arr) {
+    const s = String(x == null ? "" : x).trim().slice(0, 300);
+    if (s) out.push(s);
+    if (out.length >= 20) break;
+  }
+  return out;
+}
+
 // Free SSB modes (the only ones a free user may run).
 const FREE_SSB_MODES = ["PPDT", "WAT", "SRT"];
 const DAY24_MS = 24 * 3600 * 1000;
@@ -457,6 +470,7 @@ async function ssbAttempt(env, cors, user, url, request) {
 
   const reflected = cleanOlqs(b.reflected_keys);
   const work = cleanOlqs(b.work_keys);
+  const redFlags = cleanRedFlags(b.red_flags);
   const summary = String(b.summary || "").slice(0, 2000);
   const itemsCount = clampInt(b.items_count, 0, 200);
   const attemptedCount = clampInt(b.attempted_count, 0, 200);
@@ -466,9 +480,9 @@ async function ssbAttempt(env, cors, user, url, request) {
   const stmts = [];
   stmts.push(env.DB.prepare(
     `INSERT INTO ssb_attempts
-       (student_id, mode, created_at, items_count, attempted_count, seconds_used, summary, reflected_keys, work_keys)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).bind(user.id, mode, now, itemsCount, attemptedCount, secondsUsed, summary, JSON.stringify(reflected), JSON.stringify(work)));
+       (student_id, mode, created_at, items_count, attempted_count, seconds_used, summary, reflected_keys, work_keys, red_flags)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(user.id, mode, now, itemsCount, attemptedCount, secondsUsed, summary, JSON.stringify(reflected), JSON.stringify(work), JSON.stringify(redFlags)));
 
   reflected.forEach(k => stmts.push(env.DB.prepare(
     `INSERT INTO ssb_olq_profile (student_id, olq, reflected_count, work_count, last_seen_at)
@@ -483,26 +497,31 @@ async function ssbAttempt(env, cors, user, url, request) {
   ).bind(user.id, k, now)));
 
   await env.DB.batch(stmts);
-  return json({ ok: true, reflected, work }, 200, cors);
+  return json({ ok: true, reflected, work, red_flags: redFlags }, 200, cors);
 }
 
 // Build a student's SSB picture: rolling OLQ profile, recent attempts, and the
 // 2-3 weakest OLQs to focus on. Shared by the student view and the admin view.
-async function ssbProfileFor(env, id) {
+async function ssbProfileFor(env, id, forAdmin) {
   const prof = await env.DB.prepare(
     "SELECT olq, reflected_count, work_count, last_seen_at FROM ssb_olq_profile WHERE student_id = ?"
   ).bind(id).all();
   const profile = prof.results || [];
 
   const att = await env.DB.prepare(
-    `SELECT id, mode, created_at, items_count, attempted_count, seconds_used, summary, reflected_keys, work_keys
+    `SELECT id, mode, created_at, items_count, attempted_count, seconds_used, summary, reflected_keys, work_keys, red_flags
      FROM ssb_attempts WHERE student_id = ? ORDER BY created_at DESC LIMIT 50`
   ).bind(id).all();
-  const attempts = (att.results || []).map(a => ({
-    id: a.id, mode: a.mode, createdAt: a.created_at,
-    itemsCount: a.items_count, attemptedCount: a.attempted_count, secondsUsed: a.seconds_used,
-    summary: a.summary, reflected: safeArr(a.reflected_keys), work: safeArr(a.work_keys)
-  }));
+  const attempts = (att.results || []).map(a => {
+    const o = {
+      id: a.id, mode: a.mode, createdAt: a.created_at,
+      itemsCount: a.items_count, attemptedCount: a.attempted_count, secondsUsed: a.seconds_used,
+      summary: a.summary, reflected: safeArr(a.reflected_keys), work: safeArr(a.work_keys)
+    };
+    // Red flags are integrity concerns — only ever exposed in the admin (Anmol) view.
+    if (forAdmin) o.redFlags = safeArr(a.red_flags);
+    return o;
+  });
 
   const c = await env.DB.prepare("SELECT COUNT(*) AS n FROM ssb_attempts WHERE student_id = ?").bind(id).first();
 
@@ -515,7 +534,11 @@ async function ssbProfileFor(env, id) {
   const countsByMode = {};
   attempts.forEach(a => { countsByMode[a.mode] = (countsByMode[a.mode] || 0) + 1; });
 
-  return { profile, attempts, focus_olqs: focus, countsByMode, total: (c && c.n) || 0 };
+  const redFlagCount = forAdmin
+    ? (att.results || []).reduce((n, a) => n + (safeArr(a.red_flags).length ? 1 : 0), 0)
+    : 0;
+
+  return { profile, attempts, focus_olqs: focus, countsByMode, total: (c && c.n) || 0, redFlagCount };
 }
 
 async function ssbMe(env, cors, student) {
@@ -537,9 +560,16 @@ async function adminSsbRoster(request, env, cors) {
   const topWeak = {};
   (weak.results || []).forEach(w => { if (!topWeak[w.student_id]) topWeak[w.student_id] = w.olq; });
 
+  // Students with one or more attempts carrying a non-empty red_flags array.
+  const rf = await env.DB.prepare(
+    "SELECT DISTINCT student_id FROM ssb_attempts WHERE red_flags IS NOT NULL AND red_flags != '' AND red_flags != '[]'"
+  ).all();
+  const flagged = new Set((rf.results || []).map(r => r.student_id));
+
   const students = (res.results || []).map(s => ({
     id: s.id, name: s.name, email: s.email, product: s.product,
-    attempts: s.attempts || 0, lastAt: s.last_at || null, topWeak: topWeak[s.id] || null
+    attempts: s.attempts || 0, lastAt: s.last_at || null, topWeak: topWeak[s.id] || null,
+    redFlag: flagged.has(s.id)
   }));
   return json({ students }, 200, cors);
 }
@@ -550,7 +580,7 @@ async function adminSsbStudent(request, env, cors, url) {
   if (!id) return json({ error: "bad_id" }, 400, cors);
   const s = await env.DB.prepare("SELECT id, name, email, product FROM students WHERE id = ?").bind(id).first();
   if (!s) return json({ error: "no_such_student" }, 404, cors);
-  const data = await ssbProfileFor(env, id);
+  const data = await ssbProfileFor(env, id, true);
   return json({ student: s, ...data }, 200, cors);
 }
 

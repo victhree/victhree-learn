@@ -43,9 +43,13 @@ CREATE TABLE IF NOT EXISTS ssb_attempts (
   seconds_used    INTEGER NOT NULL DEFAULT 0,
   summary         TEXT,                      -- the personality snapshot (text)
   reflected_keys  TEXT,                      -- JSON array of canonical OLQ keys
-  work_keys       TEXT                       -- JSON array of canonical OLQ keys
+  work_keys       TEXT,                      -- JSON array of canonical OLQ keys
+  red_flags       TEXT                       -- JSON array of serious integrity concerns (usually [])
 );
 CREATE INDEX IF NOT EXISTS idx_ssb_attempts_student ON ssb_attempts(student_id, created_at);
+-- Migration for an EXISTING database (the CREATE above only applies to a fresh one).
+-- Run this once; it errors harmlessly if the column already exists:
+--   ALTER TABLE ssb_attempts ADD COLUMN red_flags TEXT;
 
 -- The rolling picture: for each student, how many times each of the 15 OLQs has
 -- shown up as a strength (reflected) vs. a thing to work on. Updated on every attempt.

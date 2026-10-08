@@ -348,14 +348,44 @@
       var color = g.status==='weak' ? '#b23b2e' : (g.status==='strong' ? '#2f7a3f' : (g.status==='developing' ? '#8a7a3a' : '#8a97a8'));
       return '<span class="pill" style="border-color:'+color+';color:'+color+'">'+esc(olqLabel(g.olq))+': '+g.status+'</span>';
     }).join(' ')+'</p>') : '';
+    var wkBlock = ssbWeeklyAdminBlock(d.weekly, s.id);
     box.innerHTML = '<h3 style="margin-bottom:4px">'+esc(s.name||"")+'</h3>'+
       '<p class="muted" style="font-size:.85rem;margin-top:0">'+esc(s.email||"")+' · '+d.total+' test'+(d.total===1?"":"s")+'</p>'+
       rfBanner +
       '<p style="margin:10px 0 2px"><strong>Focus areas:</strong> '+focus+'</p>'+
       gkRow +
+      wkBlock +
       olqTable +
       '<h4 style="margin:16px 0 8px">Recent tests</h4>'+ attempts;
+    var rw = document.getElementById("run-weekly");
+    if (rw) rw.addEventListener("click", async function(e){
+      e.preventDefault(); rw.textContent = "Generating… (takes a few seconds)";
+      await adminApi("/api/admin/ssb/run-weekly?id="+encodeURIComponent(s.id), { method:"POST" });
+      loadSsbDetail(s.id);
+    });
     box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  function ssbWeeklyAdminBlock(wk, sid){
+    var list = function(arr, fn){ return '<ul style="margin:2px 0 0;padding-left:18px;font-size:.85rem">'+arr.map(fn).join("")+'</ul>'; };
+    if (!wk || !wk.report){
+      return '<p style="margin:12px 0"><a href="#" class="hdr-action" id="run-weekly">Generate weekly report</a> <span class="muted" style="font-size:.8rem">(runs the shared engine over last week’s data)</span></p>';
+    }
+    var R = wk.report, out = '<div style="border:1px solid var(--line);border-radius:12px;padding:14px;margin:14px 0;background:#fbfcfe">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center"><h4 style="margin:0">Weekly report</h4>'+
+      '<span class="muted" style="font-size:.8rem">week of '+esc(wk.weekStart||"")+' · <a href="#" class="hdr-action" id="run-weekly">regenerate</a></span></div>';
+    if (R.overview) out += '<p style="margin:8px 0 0;font-size:.9rem">'+esc(R.overview)+'</p>';
+    if (R.metrics_movement && R.metrics_movement.length) out += '<p style="margin:10px 0 2px;font-weight:600;font-size:.85rem">Metric movement</p>'+
+      list(R.metrics_movement, function(m){ return '<li>'+esc(m.metric)+': '+esc(String(m.from))+' → '+esc(String(m.to))+' ('+esc(m.trend||"")+')</li>'; });
+    if (R.olq_movement && R.olq_movement.length) out += '<p style="margin:10px 0 2px;font-weight:600;font-size:.85rem">OLQ movement</p>'+
+      list(R.olq_movement, function(m){ return '<li>'+esc(olqLabel(m.olq))+': strength '+(m.reflected_delta>=0?"+":"")+m.reflected_delta+', to-work '+(m.work_delta>=0?"+":"")+m.work_delta+'</li>'; });
+    if (R.gatekeeper_flags && R.gatekeeper_flags.length) out += '<p style="margin:10px 0 2px;font-weight:600;font-size:.85rem;color:#8a5a00">Gatekeeper flags</p>'+
+      list(R.gatekeeper_flags, function(x){ return '<li>'+esc(x)+'</li>'; });
+    if (R.recurring_patterns && R.recurring_patterns.length) out += '<p style="margin:10px 0 2px;font-weight:600;font-size:.85rem">Recurring patterns</p>'+
+      list(R.recurring_patterns, function(x){ return '<li>'+esc(x)+'</li>'; });
+    if (R.red_flags && R.red_flags.length) out += '<p style="margin:10px 0 2px;font-weight:700;font-size:.85rem;color:#b23b2e">⚑ Red flags</p>'+
+      '<ul style="margin:2px 0 0;padding-left:18px;font-size:.85rem;color:#b23b2e">'+R.red_flags.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join("")+'</ul>';
+    return out + '</div>';
   }
 
   if (adminKey()) enterPanel();

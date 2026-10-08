@@ -305,7 +305,7 @@
     if (!withData.length){ rows.innerHTML = '<tr><td colspan="5" class="muted">No SSB tests tracked yet.</td></tr>'; return; }
     rows.innerHTML = withData.map(function(s){
       return '<tr>'+
-        '<td>'+esc(s.name)+(s.redFlag?' <span class="pill" style="background:#fdeaea;color:#b23b2e;border-color:#f0b4b4">⚑ Red flag</span>':'')+'<div class="muted" style="font-size:.8rem">'+esc(s.email)+'</div></td>'+
+        '<td>'+esc(s.name)+(s.redFlag?' <span class="pill" style="background:#fdeaea;color:#b23b2e;border-color:#f0b4b4">⚑ Red flag</span>':'')+(s.gatekeeperConcern?' <span class="pill" style="background:#fff4e0;color:#8a5a00;border-color:#f0d9a8">Gatekeeper</span>':'')+'<div class="muted" style="font-size:.8rem">'+esc(s.email)+'</div></td>'+
         '<td>'+s.attempts+'</td>'+
         '<td>'+(s.topWeak?esc(olqLabel(s.topWeak)):'<span class="muted">—</span>')+'</td>'+
         '<td>'+(s.lastAt?esc(fmtDate(s.lastAt)):'<span class="muted">—</span>')+'</td>'+
@@ -344,10 +344,15 @@
     var rfBanner = (d.redFlagCount > 0)
       ? '<div class="msg err" style="margin:10px 0">⚑ '+d.redFlagCount+' attempt'+(d.redFlagCount===1?"":"s")+' with red flags. Review the highlighted tests below.</div>'
       : '';
+    var gkRow = (d.gatekeepers && d.gatekeepers.length) ? ('<p style="margin:12px 0 2px"><strong>Gatekeeper OLQs:</strong> '+d.gatekeepers.map(function(g){
+      var color = g.status==='weak' ? '#b23b2e' : (g.status==='strong' ? '#2f7a3f' : (g.status==='developing' ? '#8a7a3a' : '#8a97a8'));
+      return '<span class="pill" style="border-color:'+color+';color:'+color+'">'+esc(olqLabel(g.olq))+': '+g.status+'</span>';
+    }).join(' ')+'</p>') : '';
     box.innerHTML = '<h3 style="margin-bottom:4px">'+esc(s.name||"")+'</h3>'+
       '<p class="muted" style="font-size:.85rem;margin-top:0">'+esc(s.email||"")+' · '+d.total+' test'+(d.total===1?"":"s")+'</p>'+
       rfBanner +
       '<p style="margin:10px 0 2px"><strong>Focus areas:</strong> '+focus+'</p>'+
+      gkRow +
       olqTable +
       '<h4 style="margin:16px 0 8px">Recent tests</h4>'+ attempts;
     box.scrollIntoView({ behavior: "smooth", block: "nearest" });

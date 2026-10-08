@@ -98,6 +98,35 @@ const OLQ_KEYS = [
 ];
 const OLQ_SET = new Set(OLQ_KEYS);
 
+// Gatekeeper OLQs carry extra weight in SSB assessment. Of the six classic
+// gatekeepers, five map to canonical OLQ keys; the sixth — "moral values" — is
+// tracked via red_flags / the moral_red_flag metric, not as an OLQ key.
+const GATEKEEPER_OLQS = new Set([
+  "social_adaptability", "cooperation", "sense_of_responsibility", "liveliness", "courage"
+]);
+
+// --- SSB structured daily challenge (Elite / Legend) — scheduling skeleton ---
+// This computes WHAT is due on a given challenge day, dripped from the course
+// start date. The actual items come from the shared SSB content bank (pending),
+// and submission/analysis sits on the engine contract (also pending).
+const SSB_DAILY = { WAT: 5, SRT: 5 }; // every day
+const SSB_TAT_EVERY = 7;              // TAT once a week
+const SSB_SDT_EVERY = 14;             // SDT once a fortnight
+
+// Only mentored tiers get the tracked SSB dashboard; Hero/trial use the open site.
+function isMentored(user) { return !!user && (user.product === "elite" || user.product === "legend"); }
+
+// day 1 = course start date; one challenge day per calendar day (07:00 IST unlock).
+function ssbChallengePlan(startDate, nowMs) {
+  const now = nowMs || Date.now();
+  const dayIndex = Math.floor((now - unlockTime(startDate, 1)) / DAY_MS) + 1;
+  if (dayIndex < 1) return { dayIndex: 0, available: false, unlockAt: unlockTime(startDate, 1), due: [] };
+  const due = [{ mode: "WAT", count: SSB_DAILY.WAT }, { mode: "SRT", count: SSB_DAILY.SRT }];
+  if (dayIndex % SSB_TAT_EVERY === 0) due.push({ mode: "TAT", count: 1 });
+  if (dayIndex % SSB_SDT_EVERY === 0) due.push({ mode: "SDT", count: 1 });
+  return { dayIndex, available: true, unlockAt: unlockTime(startDate, dayIndex), due };
+}
+
 /* ============================== ROUTER ==================================== */
 
 export default {
@@ -124,6 +153,7 @@ export default {
       if (path === "/api/ssb/allow"         && request.method === "GET")  return await withAuth(request, env, cors, ssbAllow, url, true);
       if (path === "/api/ssb/attempt"       && request.method === "POST") return await withAuth(request, env, cors, ssbAttempt, url, true);
       if (path === "/api/ssb/me"            && request.method === "GET")  return await withAuth(request, env, cors, ssbMe, url);
+      if (path === "/api/ssb/challenge/today" && request.method === "GET") return await withAuth(request, env, cors, ssbChallengeToday, url);
       if (path === "/api/admin/ssb/roster"  && request.method === "GET")  return await adminSsbRoster(request, env, cors);
       if (path === "/api/admin/ssb/student" && request.method === "GET")  return await adminSsbStudent(request, env, cors, url);
       // ---- student doubts ----
@@ -538,7 +568,16 @@ async function ssbProfileFor(env, id, forAdmin) {
     ? (att.results || []).reduce((n, a) => n + (safeArr(a.red_flags).length ? 1 : 0), 0)
     : 0;
 
-  return { profile, attempts, focus_olqs: focus, countsByMode, total: (c && c.n) || 0, redFlagCount };
+  // Gatekeeper OLQ status (admin only): strong / developing / weak / untested,
+  // from the rolling profile. A v1 heuristic; richer signal comes with metrics.
+  const gatekeepers = forAdmin ? [...GATEKEEPER_OLQS].map(k => {
+    const p = profile.find(x => x.olq === k) || {};
+    const r = p.reflected_count || 0, w = p.work_count || 0;
+    const status = (r + w === 0) ? "untested" : (w > r ? "weak" : (r > w ? "strong" : "developing"));
+    return { olq: k, reflected: r, work: w, status };
+  }) : undefined;
+
+  return { profile, attempts, focus_olqs: focus, countsByMode, total: (c && c.n) || 0, redFlagCount, gatekeepers };
 }
 
 async function ssbMe(env, cors, student) {
@@ -566,10 +605,18 @@ async function adminSsbRoster(request, env, cors) {
   ).all();
   const flagged = new Set((rf.results || []).map(r => r.student_id));
 
+  // Students with a gatekeeper OLQ that shows up more as "to work on" than as a strength.
+  const gk = await env.DB.prepare(
+    `SELECT DISTINCT student_id FROM ssb_olq_profile
+     WHERE olq IN ('social_adaptability','cooperation','sense_of_responsibility','liveliness','courage')
+       AND work_count > reflected_count`
+  ).all();
+  const gkConcern = new Set((gk.results || []).map(r => r.student_id));
+
   const students = (res.results || []).map(s => ({
     id: s.id, name: s.name, email: s.email, product: s.product,
     attempts: s.attempts || 0, lastAt: s.last_at || null, topWeak: topWeak[s.id] || null,
-    redFlag: flagged.has(s.id)
+    redFlag: flagged.has(s.id), gatekeeperConcern: gkConcern.has(s.id)
   }));
   return json({ students }, 200, cors);
 }
@@ -582,6 +629,15 @@ async function adminSsbStudent(request, env, cors, url) {
   if (!s) return json({ error: "no_such_student" }, 404, cors);
   const data = await ssbProfileFor(env, id, true);
   return json({ student: s, ...data }, 200, cors);
+}
+
+// SSB dashboard — today's structured set for a mentored student. Scaffolding:
+// returns WHAT is due today (dripped from the course start). Items + submission
+// are wired in Phase 1 once the content source + engine contract are confirmed.
+async function ssbChallengeToday(env, cors, user) {
+  if (!isMentored(user)) return json({ error: "mentored_only" }, 403, cors);
+  const plan = ssbChallengePlan(user.start_date);
+  return json({ tier: user.product, startDate: user.start_date, plan, itemsReady: false }, 200, cors);
 }
 
 /* ============================== DOUBTS API =============================== */

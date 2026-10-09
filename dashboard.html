@@ -753,14 +753,13 @@
         if (items.WAT && items.WAT.length) {
           html += '<div class="chip-row" style="margin-top:6px">' + items.WAT.map(function(w){ return '<span class="chip">' + esc(w.word) + '</span>'; }).join('') + '</div>';
         }
-        html += '<a class="btn primary" style="margin-top:12px" id="ssb-practice-today" href="#" target="_blank" rel="noopener">Start today’s practice →</a>';
+        html += '<a class="btn primary" style="margin-top:12px" id="ssb-practice-today" href="ssb-test.html">Start today’s practice →</a>';
       }
       html += '</div>';
     }
 
     host.innerHTML = html || '<div class="ssb-panel"><div class="ssb-k">Your structured SSB</div><p class="ssb-note">Your plan and weekly report will appear here as you practise.</p></div>';
-    var pt = document.getElementById("ssb-practice-today");
-    if (pt && window.SSB_URL) pt.href = ssbHandoff(window.SSB_URL);
+    // "Start today's practice" runs the test inside the portal (ssb-test.html).
   }
 
   async function loadSsb(){

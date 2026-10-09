@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SSB Challenge | VicThree Defence</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/shield-32.png">
+<meta name="theme-color" content="#0B1F3A">
+<link rel="stylesheet" href="assets/portal.css">
+<style>
+  .tr-wrap{max-width:720px;margin:0 auto;padding:18px 16px 60px}
+  .tr-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+  .tr-top .back{font-size:.9rem}
+  .tr-phase{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#9a7a23}
+  .tr-card{background:#fff;border:1px solid var(--line,#e3dccb);border-radius:16px;padding:22px}
+  .tr-h{font-family:var(--serif,Georgia),serif;font-size:1.5rem;margin:0 0 6px;color:#0f2340}
+  .tr-sub{color:#54637a;margin:0 0 16px}
+  .tr-list{margin:14px 0;padding-left:20px;color:#33435c}
+  .tr-list li{margin:5px 0}
+
+  /* running */
+  .tr-meta{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .tr-count{font-size:.85rem;color:#54637a}
+  .tr-timer{font-variant-numeric:tabular-nums;font-weight:800;font-size:1.05rem;color:#0f2340}
+  .tr-bar{height:6px;border-radius:999px;background:#eceadf;overflow:hidden;margin-bottom:20px}
+  .tr-bar span{display:block;height:100%;background:#c9a24b;width:100%;transition:width 1s linear}
+  .tr-bar.low span{background:#b23b2e}
+  .tr-kind{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#9a7a23;margin-bottom:6px}
+  .tr-stim{font-family:var(--serif,Georgia),serif;color:#0f2340;line-height:1.35}
+  .tr-stim.word{font-size:2.3rem;font-weight:700}
+  .tr-stim.sit{font-size:1.2rem}
+  .tr-input,.tr-area{width:100%;box-sizing:border-box;margin-top:16px;border:1px solid #cdd6e3;border-radius:10px;padding:12px 14px;font-size:1.05rem;font-family:inherit}
+  .tr-area{min-height:120px;resize:vertical}
+  .tr-input:focus,.tr-area:focus{outline:none;border-color:#0f2340}
+  .tr-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+
+  /* results */
+  .res-item{border:1px solid var(--line,#e3dccb);border-radius:12px;padding:14px;margin-top:12px}
+  .res-item .stim{font-weight:700;color:#0f2340}
+  .res-item .said{margin:8px 0 0;padding-left:12px;border-left:3px solid #d9e0ea;color:#33435c;font-style:italic}
+  .res-item .cmt{margin:10px 0 0;font-size:.92rem;color:#33435c}
+  .res-item .cmt b{color:#0f2340}
+  .res-sum{background:#f5f7fb;border:1px solid #d9e0ea;border-radius:12px;padding:14px;margin:4px 0 8px;color:#33435c}
+  .tr-msg{padding:14px;border-radius:12px;margin:10px 0}
+  .tr-msg.err{background:#fbeae8;border:1px solid #e3b4ad;color:#8a2b22}
+  .spin{display:inline-block;width:16px;height:16px;border:2px solid #cdd6e3;border-top-color:#0f2340;border-radius:50%;animation:sp 1s linear infinite;vertical-align:-3px;margin-right:8px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="banner-wrap">
+    <a href="dashboard.html" class="banner-link" aria-label="VicThree Defence"><img src="assets/banner.jpg" alt="VicThree Defence"></a>
+    <a class="hdr-action" href="dashboard.html#ssb">Exit</a>
+  </div>
+</header>
+
+<main class="tr-wrap">
+  <div class="tr-top">
+    <a class="back hdr-action" href="dashboard.html#ssb">&larr; SSB Progress</a>
+    <span class="tr-phase" id="phase">Today's challenge</span>
+  </div>
+  <div id="stage"><div class="tr-card"><p class="tr-sub"><span class="spin"></span>Loading today's challenge…</p></div></div>
+</main>
+
+<script src="assets/portal.js"></script>
+<script>
+(function(){
+  if (typeof requireLogin === "function" && !requireLogin()) return;
+
+  var WAT_SECONDS = 15, SRT_SECONDS = 40;
+  var stage = document.getElementById("stage"), phaseEl = document.getElementById("phase");
+  var DAY = null, FOCUS = [], QUEUE = [], results = [];
+  var cur = null; // {mode, items:[], idx, responses:[], timer, remaining, startTs}
+
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+
+  // ---- load the day's set ----
+  (async function init(){
+    var r = await api("/api/ssb/challenge/today");
+    if (!r || !r.ok){ showErr("Could not load today's challenge. Please try again from your dashboard."); return; }
+    var d = r.data || {};
+    if (d.plan && d.plan.available === false){ showInfo("Your structured challenge begins on " + esc(d.startDate||"your start date") + "."); return; }
+    DAY = (d.plan && d.plan.dayIndex) || null;
+    FOCUS = Array.isArray(d.focus_olqs) ? d.focus_olqs : [];
+    var items = d.items || {};
+    QUEUE = [];
+    if (items.WAT && items.WAT.length) QUEUE.push({ mode:"WAT", label:"Word Association", seconds:WAT_SECONDS, kind:"word",
+      items: items.WAT.map(function(w){ return { n:0, prompt:w.word, tag:w.type }; }) });
+    if (items.SRT && items.SRT.length) QUEUE.push({ mode:"SRT", label:"Situation Reaction", seconds:SRT_SECONDS, kind:"sit",
+      items: items.SRT.map(function(s){ return { n:0, prompt:s.situation, tag:s.tag }; }) });
+    // TAT/SDT (weekly/fortnightly) are added to the portal trainer in a later pass.
+    if (!QUEUE.length){ showInfo("No challenge items are available today. Please check back tomorrow."); return; }
+    renderIntro();
+  })();
+
+  function showErr(m){ stage.innerHTML = '<div class="tr-card"><div class="tr-msg err">'+esc(m)+'</div><a class="btn primary" href="dashboard.html#ssb">Back to dashboard</a></div>'; }
+  function showInfo(m){ stage.innerHTML = '<div class="tr-card"><p class="tr-sub">'+esc(m)+'</p><a class="btn primary" href="dashboard.html#ssb">Back to dashboard</a></div>'; }
+
+  function renderIntro(){
+    phaseEl.textContent = DAY ? ("Day " + DAY) : "Today's challenge";
+    var lines = QUEUE.map(function(q){ return '<li><b>'+q.items.length+' '+esc(q.label)+'</b> — '+q.seconds+' seconds each</li>'; }).join("");
+    stage.innerHTML =
+      '<div class="tr-card">'+
+      '<div class="tr-kind">Structured practice</div>'+
+      '<h1 class="tr-h">Today’s SSB challenge</h1>'+
+      '<p class="tr-sub">Respond honestly and quickly, the way you would on the board. Each item is timed and moves on automatically.</p>'+
+      '<ul class="tr-list">'+lines+'</ul>'+
+      '<p class="tr-sub" style="font-size:.85rem">This is structured practice and feedback based on established SSB principles — not the real board’s assessment.</p>'+
+      '<div class="tr-actions"><a class="btn" href="dashboard.html#ssb">Not now</a><button class="btn primary" id="go">Start</button></div>'+
+      '</div>';
+    document.getElementById("go").addEventListener("click", function(){ startMode(0); });
+  }
+
+  // ---- run one mode ----
+  function startMode(qi){
+    if (qi >= QUEUE.length){ finishAll(); return; }
+    var q = QUEUE[qi];
+    cur = { qi:qi, mode:q.mode, label:q.label, kind:q.kind, seconds:q.seconds, items:q.items, idx:0, responses:[] };
+    phaseEl.textContent = q.label + (DAY ? (" · Day " + DAY) : "");
+    showItem();
+  }
+
+  function showItem(){
+    var q = cur, it = q.items[q.idx];
+    var isWord = q.kind === "word";
+    stage.innerHTML =
+      '<div class="tr-card">'+
+      '<div class="tr-meta"><span class="tr-count">'+esc(q.label)+' · '+(q.idx+1)+' of '+q.items.length+'</span>'+
+      '<span class="tr-timer" id="timer">'+q.seconds+'s</span></div>'+
+      '<div class="tr-bar" id="bar"><span id="barfill"></span></div>'+
+      '<div class="tr-kind">'+(isWord?'Word':'Situation')+'</div>'+
+      '<div class="tr-stim '+(isWord?'word':'sit')+'">'+esc(it.prompt)+'</div>'+
+      (isWord
+        ? '<input class="tr-input" id="inp" autocomplete="off" placeholder="Write your sentence and press Enter">'
+        : '<textarea class="tr-area" id="inp" placeholder="Write what he does next…"></textarea>')+
+      '<div class="tr-actions"><button class="btn primary" id="next">'+(q.idx>=q.items.length-1?'Finish':'Next')+'</button></div>'+
+      '</div>';
+    var inp = document.getElementById("inp");
+    inp.focus();
+    if (isWord) inp.addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); commit(); } });
+    document.getElementById("next").addEventListener("click", commit);
+    startTimer(q.seconds);
+  }
+
+  function startTimer(secs){
+    cur.remaining = secs; cur.startTs = Date.now();
+    var t = document.getElementById("timer"), bar = document.getElementById("bar"), fill = document.getElementById("barfill");
+    fill.style.width = "100%";
+    clearInterval(cur.timer);
+    cur.timer = setInterval(function(){
+      cur.remaining--;
+      if (t) t.textContent = Math.max(0,cur.remaining) + "s";
+      if (fill) fill.style.width = Math.max(0, (cur.remaining/secs)*100) + "%";
+      if (bar) bar.classList.toggle("low", cur.remaining <= Math.ceil(secs*0.25));
+      if (cur.remaining <= 0) commit(true);
+    }, 1000);
+  }
+
+  function commit(timedOut){
+    clearInterval(cur.timer);
+    var inp = document.getElementById("inp");
+    var text = inp ? inp.value.trim() : "";
+    var it = cur.items[cur.idx];
+    var used = Math.min(cur.seconds, Math.round((Date.now()-cur.startTs)/1000));
+    cur.responses.push({ n: cur.idx+1, prompt: it.prompt, tag: it.tag, response: text, seconds: used });
+    cur.idx++;
+    if (cur.idx < cur.items.length) showItem(); else submitMode();
+  }
+
+  async function submitMode(){
+    phaseEl.textContent = "Scoring…";
+    stage.innerHTML = '<div class="tr-card"><p class="tr-sub"><span class="spin"></span>Scoring your '+esc(cur.label)+' responses…</p></div>';
+    var r = await api("/api/ssb/analyze", { method:"POST", body:{ mode:cur.mode, items:cur.responses, focus_olqs:FOCUS } });
+    var analysis = (r && r.ok && r.data && r.data.analysis) ? r.data.analysis : null;
+    results.push({ mode:cur.mode, label:cur.label, kind:cur.kind, responses:cur.responses, analysis:analysis });
+    var nextQi = cur.qi + 1;
+    if (nextQi < QUEUE.length) renderInterstitial(nextQi);
+    else finishAll();
+  }
+
+  function renderInterstitial(nextQi){
+    var done = cur.label, nextLabel = QUEUE[nextQi].label, cnt = QUEUE[nextQi].items.length, secs = QUEUE[nextQi].seconds;
+    stage.innerHTML =
+      '<div class="tr-card">'+
+      '<div class="tr-kind">'+esc(done)+' done</div>'+
+      '<h1 class="tr-h">Nice work.</h1>'+
+      '<p class="tr-sub">Next: '+cnt+' '+esc(nextLabel)+' — '+secs+' seconds each. Your feedback for everything appears at the end.</p>'+
+      '<div class="tr-actions"><button class="btn primary" id="cont">Continue</button></div>'+
+      '</div>';
+    document.getElementById("cont").addEventListener("click", function(){ startMode(nextQi); });
+  }
+
+  // ---- results ----
+  function finishAll(){
+    phaseEl.textContent = "Complete";
+    var html = '<div class="tr-card"><div class="tr-kind">Challenge complete</div>'+
+      '<h1 class="tr-h">Well done—today’s challenge is in.</h1>'+
+      '<p class="tr-sub">Your progress and weekly report on the dashboard now include this session. Here’s your feedback.</p>';
+    results.forEach(function(sec){
+      html += '<h3 style="margin:22px 0 2px;color:#0f2340">'+esc(sec.label)+'</h3>';
+      var a = sec.analysis;
+      if (a && a.summary) html += '<div class="res-sum">'+esc(a.summary)+'</div>';
+      var per = (a && Array.isArray(a.per_item)) ? a.per_item : [];
+      sec.responses.forEach(function(resp, i){
+        var pi = per[i] || {};
+        var fb = pi.comment || pi.suggestion || "";
+        html += '<div class="res-item">'+
+          '<div class="stim">'+esc(resp.prompt)+'</div>'+
+          '<div class="said">'+(resp.response ? esc(resp.response) : '<span style="opacity:.6">(no answer)</span>')+'</div>'+
+          (fb ? '<div class="cmt"><b>Feedback:</b> '+esc(fb)+(pi.suggestion&&pi.comment?(' '+esc(pi.suggestion)):'')+'</div>' : '')+
+          '</div>';
+      });
+      if (!a) html += '<div class="tr-msg err">Scoring for this section isn’t available right now, but your responses were saved.</div>';
+    });
+    html += '<div class="tr-actions" style="margin-top:22px"><a class="btn primary" href="dashboard.html#ssb">Back to my progress</a></div></div>';
+    stage.innerHTML = html;
+    window.scrollTo(0,0);
+  }
+})();
+</script>
+</body>
+</html>

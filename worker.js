@@ -161,6 +161,7 @@ export default {
       if (path === "/api/ssb/attempt"       && request.method === "POST") return await withAuth(request, env, cors, ssbAttempt, url, true);
       if (path === "/api/ssb/me"            && request.method === "GET")  return await withAuth(request, env, cors, ssbMe, url);
       if (path === "/api/ssb/challenge/today" && request.method === "GET") return await withAuth(request, env, cors, ssbChallengeToday, url);
+      if (path === "/api/ssb/analyze"       && request.method === "POST") return await withAuth(request, env, cors, ssbAnalyze, url);
       if (path === "/api/ssb/dashboard"     && request.method === "GET")  return await withAuth(request, env, cors, ssbDashboard, url);
       if (path === "/api/admin/ssb/roster"  && request.method === "GET")  return await adminSsbRoster(request, env, cors);
       if (path === "/api/admin/ssb/student" && request.method === "GET")  return await adminSsbStudent(request, env, cors, url);
@@ -818,6 +819,85 @@ async function ssbChallengeToday(env, cors, user) {
   const targeting = Array.from(covered);
 
   return json({ tier: user.product, startDate: user.start_date, plan, items, focus_olqs: focus, targeting, itemsReady: true }, 200, cors);
+}
+
+// Store one completed course SSB session (engine analysis `data` + the raw `items`).
+// Shared by the in-portal trainer. Mirrors the course branch of ssbAttempt.
+async function storeCourseSession(env, user, mode, data, items) {
+  const reflected = cleanOlqs(data.reflected_keys);
+  const work = cleanOlqs(data.work_keys);
+  const redFlags = cleanRedFlags(data.red_flags);
+  const summary = String(data.summary || "").slice(0, 2000);
+  const metrics = (data.metrics && typeof data.metrics === "object" && !Array.isArray(data.metrics)) ? data.metrics : null;
+  const perItem = Array.isArray(data.per_item) ? data.per_item.slice(0, 60) : [];
+  const itemsCount = (metrics && metrics.items_count != null) ? clampInt(metrics.items_count, 0, 200) : items.length;
+  const attemptedCount = (metrics && metrics.attempted_count != null) ? clampInt(metrics.attempted_count, 0, 200) : items.filter(it => it.response && it.response.trim()).length;
+  const secondsUsed = items.reduce((a, it) => a + (it.seconds || 0), 0);
+  const now = Date.now();
+
+  const ins = await env.DB.prepare(
+    `INSERT INTO ssb_attempts
+       (student_id, mode, created_at, items_count, attempted_count, seconds_used, summary, reflected_keys, work_keys, red_flags, metrics)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(user.id, mode, now, itemsCount, attemptedCount, secondsUsed, summary,
+         JSON.stringify(reflected), JSON.stringify(work), JSON.stringify(redFlags),
+         metrics ? JSON.stringify(metrics) : null).run();
+  const sessionId = (ins && ins.meta) ? ins.meta.last_row_id : null;
+
+  const stmts = [];
+  perItem.forEach((pi, i) => {
+    const n = clampInt((pi && pi.n != null) ? pi.n : (i + 1), 0, 1000);
+    const resp = String((pi && pi.response) || "").slice(0, 2000);
+    stmts.push(env.DB.prepare(
+      "INSERT INTO ssb_items (session_id, student_id, mode, n, response, analysis, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    ).bind(sessionId, user.id, mode, n, resp, JSON.stringify(pi || {}), now));
+  });
+  reflected.forEach(k => stmts.push(env.DB.prepare(
+    `INSERT INTO ssb_olq_profile (student_id, olq, reflected_count, work_count, last_seen_at)
+     VALUES (?, ?, 1, 0, ?) ON CONFLICT(student_id, olq) DO UPDATE SET reflected_count = reflected_count + 1, last_seen_at = excluded.last_seen_at`
+  ).bind(user.id, k, now)));
+  work.forEach(k => stmts.push(env.DB.prepare(
+    `INSERT INTO ssb_olq_profile (student_id, olq, reflected_count, work_count, last_seen_at)
+     VALUES (?, ?, 0, 1, ?) ON CONFLICT(student_id, olq) DO UPDATE SET work_count = work_count + 1, last_seen_at = excluded.last_seen_at`
+  ).bind(user.id, k, now)));
+  if (stmts.length) await env.DB.batch(stmts);
+  return sessionId;
+}
+
+// In-portal SSB trainer: the student's responses come in, the portal calls the
+// shared engine server-to-server (Gemini key never touches the browser), stores
+// the scored session, and returns the analysis so the trainer can show feedback.
+async function ssbAnalyze(env, cors, user, url, request) {
+  if (!isMentored(user)) return json({ error: "mentored_only" }, 403, cors);
+  const b = await readJson(request);
+  const mode = String(b.mode || "").toUpperCase();
+  if (["WAT", "SRT", "SDT", "TAT", "PPDT", "GPE"].indexOf(mode) === -1) return json({ error: "bad_mode" }, 400, cors);
+  const items = Array.isArray(b.items) ? b.items.slice(0, 30).map((it, i) => ({
+    n: (it && it.n != null) ? it.n : i + 1,
+    prompt: String((it && it.prompt) || "").slice(0, 500),
+    title: (it && it.title) ? String(it.title).slice(0, 200) : undefined,
+    tag: (it && it.tag) ? String(it.tag).slice(0, 40) : undefined,
+    response: String((it && it.response) || "").slice(0, 2000),
+    seconds: clampInt(it && it.seconds, 0, 100000)
+  })) : [];
+  if (!items.length) return json({ error: "no_items" }, 400, cors);
+  const focus = cleanOlqs(b.focus_olqs);
+
+  let data;
+  try {
+    const res = await fetch(ENGINE_BASE + "/analyze/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Engine-Key": env.ENGINE_SHARED_SECRET || "" },
+      body: JSON.stringify({ mode, items, focus_olqs: focus })
+    });
+    if (!res.ok) return json({ error: "engine_error", status: res.status }, 502, cors);
+    data = await res.json();
+  } catch (e) {
+    return json({ error: "engine_unreachable" }, 502, cors);
+  }
+
+  try { await storeCourseSession(env, user, mode, data || {}, items); } catch (e) { /* still return feedback */ }
+  return json({ ok: true, analysis: data }, 200, cors);
 }
 
 /* ----- Weekly report (shared engine, server-to-server) ----- */

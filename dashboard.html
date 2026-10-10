@@ -706,7 +706,7 @@
   async function loadSsbMentored(){
     if (ssbMentoredLoaded) return;
     var P = window.PRODUCT;
-    if (P !== "elite" && P !== "legend") return;
+    if (["trial", "elite", "legend"].indexOf(P) === -1) return;
     ssbMentoredLoaded = true;
     var host = document.getElementById("ssb-mentored");
     host.classList.remove("hide");
@@ -809,8 +809,8 @@
   async function loadSsb(){
     if (ssbLoaded) return; ssbLoaded = true;
     if (!window.PRODUCT) { var meR = await api("/api/me"); window.PRODUCT = (meR && meR.data && meR.data.product) || ""; }
-    if (window.PRODUCT === "elite" || window.PRODUCT === "legend") {
-      // Mentored students use the tracked dashboard above; hide the old table view.
+    if (window.PRODUCT === "trial" || window.PRODUCT === "elite" || window.PRODUCT === "legend") {
+      // These tiers use the tracked dashboard above; hide the old table view.
       await loadSsbMentored();
       var ob = document.getElementById("ssb-body"); if (ob) ob.hidden = true;
       var om = document.getElementById("ssb-msg"); if (om) om.innerHTML = "";

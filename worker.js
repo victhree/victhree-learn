@@ -123,6 +123,11 @@ const SSB_DATA_BASE = "https://ssb.victhreedefence.com/data";
 // Only mentored tiers get the tracked SSB dashboard; Hero/trial use the open site.
 function isMentored(user) { return !!user && (user.product === "elite" || user.product === "legend"); }
 
+// Who gets the tracked SSB dashboard + in-portal trainer + weekly report. Trial is
+// included so prospects experience the whole thing; Hero (self-paced) is excluded.
+const SSB_DASH_PRODUCTS = ["trial", "elite", "legend"];
+function canSeeSsb(user) { return !!user && SSB_DASH_PRODUCTS.indexOf(user.product) !== -1; }
+
 // day 1 = course start date; one challenge day per calendar day (07:00 IST unlock).
 function ssbChallengePlan(startDate, nowMs) {
   const now = nowMs || Date.now();
@@ -189,7 +194,7 @@ export default {
   async scheduled(event, env, ctx) {
     const { fromMs, toMs } = lastCompletedWeekIST(Date.now());
     const studs = await env.DB.prepare(
-      "SELECT id, name FROM students WHERE status = 'active' AND product IN ('elite','legend')"
+      "SELECT id, name FROM students WHERE status = 'active' AND product IN ('trial','elite','legend')"
     ).all();
     for (const s of (studs.results || [])) {
       try { await generateWeekly(env, s, fromMs, toMs); } catch (e) { /* skip this student, continue */ }
@@ -784,7 +789,7 @@ function selectByOlq(bank, count, seed, weak, varietyPick) {
 // cover the student's weakest OLQs (gatekeepers first), the rest varied. Stable
 // per day; shifts as the profile changes.
 async function ssbChallengeToday(env, cors, user) {
-  if (!isMentored(user)) return json({ error: "mentored_only" }, 403, cors);
+  if (!canSeeSsb(user)) return json({ error: "no_ssb_access" }, 403, cors);
   const plan = ssbChallengePlan(user.start_date);
   if (!plan.available) return json({ tier: user.product, startDate: user.start_date, plan, items: null, itemsReady: false }, 200, cors);
 
@@ -868,7 +873,7 @@ async function storeCourseSession(env, user, mode, data, items) {
 // shared engine server-to-server (Gemini key never touches the browser), stores
 // the scored session, and returns the analysis so the trainer can show feedback.
 async function ssbAnalyze(env, cors, user, url, request) {
-  if (!isMentored(user)) return json({ error: "mentored_only" }, 403, cors);
+  if (!canSeeSsb(user)) return json({ error: "no_ssb_access" }, 403, cors);
   const b = await readJson(request);
   const mode = String(b.mode || "").toUpperCase();
   if (["WAT", "SRT", "SDT", "TAT", "PPDT", "GPE"].indexOf(mode) === -1) return json({ error: "bad_mode" }, 400, cors);
@@ -973,7 +978,7 @@ const SSB_RADAR = [
   ["sense_of_responsibility", "Responsibility"], ["power_of_expression", "Expression"], ["reasoning_ability", "Reasoning"]
 ];
 async function ssbDashboard(env, cors, user) {
-  if (!isMentored(user)) return json({ error: "mentored_only" }, 403, cors);
+  if (!canSeeSsb(user)) return json({ error: "no_ssb_access" }, 403, cors);
   const now = Date.now();
   const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 
@@ -1055,7 +1060,7 @@ async function adminRunWeekly(request, env, cors, url) {
     return json({ ok: true, generated: out ? 1 : 0, week: istDateStr(fromMs) }, 200, cors);
   }
   const studs = await env.DB.prepare(
-    "SELECT id, name FROM students WHERE status = 'active' AND product IN ('elite','legend')"
+    "SELECT id, name FROM students WHERE status = 'active' AND product IN ('trial','elite','legend')"
   ).all();
   let n = 0;
   for (const s of (studs.results || [])) { try { if (await generateWeekly(env, s, fromMs, toMs)) n++; } catch (e) { /* skip */ } }

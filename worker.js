@@ -966,36 +966,80 @@ async function generateWeekly(env, student, fromMs, toMs) {
 // Student SSB dashboard (mentored): a simple trajectory + friendly trend
 // indicators + the latest plain-language weekly report. No red flags, no OLQ
 // jargon — those live in the admin view only.
+// Student SSB dashboard: text-first. One chart (the OLQ radar, the student's own
+// shape), the rest plain language. No invented scores, no sparkline graphics.
+const SSB_RADAR = [
+  ["cooperation", "Cooperation"], ["courage", "Courage"], ["social_adaptability", "Social adaptability"],
+  ["sense_of_responsibility", "Responsibility"], ["power_of_expression", "Expression"], ["reasoning_ability", "Reasoning"]
+];
 async function ssbDashboard(env, cors, user) {
   if (!isMentored(user)) return json({ error: "mentored_only" }, 403, cors);
   const now = Date.now();
+  const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+
   const att = await env.DB.prepare(
     `SELECT mode, created_at, items_count, attempted_count, metrics
-     FROM ssb_attempts WHERE student_id = ? ORDER BY created_at DESC LIMIT 60`
+     FROM ssb_attempts WHERE student_id = ? ORDER BY created_at DESC LIMIT 120`
   ).bind(user.id).all();
   const rows = att.results || [];
+  const total = rows.length;
   const sessions = rows.map(a => ({ mode: a.mode, at: a.created_at, items: a.items_count, attempted: a.attempted_count }));
 
-  // Friendly this-week vs last-week trends (only when both weeks have data).
+  // OLQ profile -> radar (own shape, 1..10; no target line).
+  const prof = await env.DB.prepare(
+    "SELECT olq, reflected_count, work_count FROM ssb_olq_profile WHERE student_id = ?"
+  ).bind(user.id).all();
+  const prrows = prof.results || [];
+  const pmap = {}; prrows.forEach(p => { pmap[p.olq] = p; });
+  const olqScore = k => { const p = pmap[k] || {}; const r = p.reflected_count || 0, w = p.work_count || 0; return (r + w === 0) ? 5 : Math.max(1, Math.min(10, Math.round(10 * (r + 0.5) / (r + w + 1)))); };
+  const radar = SSB_RADAR.map(x => ({ olq: x[0], label: x[1], value: olqScore(x[0]) }));
+  const labelOf = k => { const f = SSB_RADAR.find(x => x[0] === k); return f ? f[1].toLowerCase() : k.replace(/_/g, " "); };
+
+  // This week vs last week -> plain "what's improving" sentences (no graphics).
   const weekMs = 7 * DAY_MS;
   const thisWeek = rows.filter(a => a.created_at >= now - weekMs);
   const prevWeek = rows.filter(a => a.created_at >= now - 2 * weekMs && a.created_at < now - weekMs);
-  const agg = (list, pick) => list.reduce((acc, a) => {
-    const m = safeObj(a.metrics); const v = m ? pick(m) : null;
-    return (v == null || isNaN(v)) ? acc : { s: acc.s + Number(v), n: acc.n + 1 };
-  }, { s: 0, n: 0 });
-  const trends = [];
+  const agg = (list, pick) => list.reduce((acc, a) => { const m = safeObj(a.metrics); const v = m ? pick(m) : null; return (v == null || isNaN(v)) ? acc : { s: acc.s + Number(v), n: acc.n + 1 }; }, { s: 0, n: 0 });
+  const improving = [];
   const tTry = agg(thisWeek, m => m.try_count), pTry = agg(prevWeek, m => m.try_count);
-  if (tTry.n && pTry.n) trends.push({ label: "'try' usage", from: pTry.s, to: tTry.s, lowerIsBetter: true });
+  if (tTry.n && pTry.n && tTry.s !== pTry.s) improving.push(tTry.s < pTry.s
+    ? "Your use of “try” dropped from " + pTry.s + " to " + tTry.s + ". Keep opening with a firm action."
+    : "Your use of “try” rose from " + pTry.s + " to " + tTry.s + ". Aim to open with a decided action word.");
   const tSrt = agg(thisWeek, m => m.srt_completion_rate), pSrt = agg(prevWeek, m => m.srt_completion_rate);
-  if (tSrt.n && pSrt.n) trends.push({ label: "SRT completion", unit: "%", higherIsBetter: true, from: Math.round(pSrt.s / pSrt.n * 100), to: Math.round(tSrt.s / tSrt.n * 100) });
+  if (tSrt.n && pSrt.n) { const a = Math.round(pSrt.s / pSrt.n * 100), b = Math.round(tSrt.s / tSrt.n * 100); if (b !== a) improving.push(b > a
+    ? "You finished more situations (" + a + "% to " + b + "%). Keep adding the outcome to each one."
+    : "You finished fewer situations (" + a + "% to " + b + "%). Give each one a clear ending."); }
+
+  // The qualities that matter most, as one plain line.
+  const strengths = prrows.filter(p => (p.reflected_count || 0) > (p.work_count || 0))
+    .sort((a, b) => ((b.reflected_count - b.work_count) - (a.reflected_count - a.work_count)));
+  const weak = weakOlqsPrioritized(prrows);
+  let qualitiesNote = "";
+  const sParts = strengths.slice(0, 2).map(p => labelOf(p.olq));
+  if (sParts.length === 2) qualitiesNote = cap(sParts[0]) + " and " + sParts[1] + " are real strengths.";
+  else if (sParts.length === 1) qualitiesNote = cap(sParts[0]) + " is a real strength.";
+  if (weak.length) qualitiesNote += (qualitiesNote ? " " : "") + cap(labelOf(weak[0])) + " needs the most attention.";
+
+  // Streak: consecutive IST days with at least one session, ending today or yesterday.
+  const days = {}; rows.forEach(a => { days[istDateStr(a.created_at)] = true; });
+  const key = dt => dt.toISOString().slice(0, 10);
+  let streak = 0, d = new Date(now + 330 * 60000);
+  if (!days[key(d)]) d = new Date(d.getTime() - DAY_MS);
+  while (days[key(d)]) { streak++; d = new Date(d.getTime() - DAY_MS); }
+
+  // Status line + "where you're heading" forecast (plain text).
+  const statusLine = !total
+    ? "Your SSB practice starts here. Do today’s challenge to begin building your picture."
+    : (improving.length ? "You’re building well. Sharper and more decisive this week."
+      : "Steady progress. Keep the daily challenge going to see it move.");
+  const forecast = total ? "Keep this pace and your weaker areas should strengthen over the next few weeks." : "";
 
   const wk = await env.DB.prepare(
     "SELECT week_start, student_report, created_at FROM ssb_weekly_reports WHERE student_id = ? ORDER BY week_start DESC LIMIT 1"
   ).bind(user.id).first();
   const weekly = wk ? { weekStart: wk.week_start, report: safeObj(wk.student_report), createdAt: wk.created_at } : null;
 
-  return json({ tier: user.product, totalSessions: rows.length, sessions, trends, weekly }, 200, cors);
+  return json({ tier: user.product, totalSessions: total, statusLine, radar, improving, qualitiesNote, forecast, streak, weekly, recent: sessions.slice(0, 8) }, 200, cors);
 }
 
 // Admin: manually (re)generate last week's report — for one student (?id=) or all

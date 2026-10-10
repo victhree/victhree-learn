@@ -699,8 +699,9 @@
       host.appendChild(c);
     });
   }
-  // Mentored-only (Elite/Legend) tracked block: this week's plain-language focus,
-  // friendly trend indicators, and today's structured challenge set.
+  // Mentored-only (Elite/Legend) tracked SSB dashboard: a kind status line, today's
+  // challenge + streak, the OLQ radar (own shape), a plain written weekly report,
+  // and a "where you're heading" section. Text-first; one chart; no em dashes.
   var ssbMentoredLoaded = false;
   async function loadSsbMentored(){
     if (ssbMentoredLoaded) return;
@@ -709,62 +710,112 @@
     ssbMentoredLoaded = true;
     var host = document.getElementById("ssb-mentored");
     host.classList.remove("hide");
-    host.innerHTML = '<div class="muted" style="padding:6px 0">Loading your plan…</div>';
+    host.innerHTML = '<div class="muted" style="padding:6px 0">Loading your SSB dashboard…</div>';
     var dash = await api("/api/ssb/dashboard");
     var ch = await api("/api/ssb/challenge/today");
+    var D = (dash && dash.ok && dash.data) ? dash.data : {};
     var html = "";
 
-    var wk = (dash && dash.ok && dash.data) ? dash.data.weekly : null;
-    if (wk && wk.report) {
-      var R = wk.report;
-      html += '<div class="ssb-panel"><div class="ssb-k">This week’s focus</div>';
-      if (R.headline) html += '<p class="ssb-note">' + esc(R.headline) + '</p>';
-      (R.focus || []).forEach(function(f){
-        html += '<div style="margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px">' +
-          '<div style="font-weight:600">' + esc(f.pattern || "") + '</div>' +
-          (f.why ? '<div class="muted" style="font-size:13px;margin-top:3px">' + esc(f.why) + '</div>' : '') +
-          (f.action ? '<div style="font-size:13.5px;margin-top:6px"><strong>This week:</strong> ' + esc(f.action) + '</div>' : '') +
-          '</div>';
-      });
-      html += '</div>';
-    }
+    // 1. Status line.
+    if (D.statusLine) html += '<div class="ssb-panel"><div style="font-family:var(--serif,Georgia),serif;font-size:1.15rem;color:#0f2340;line-height:1.35">' + esc(D.statusLine) + '</div></div>';
 
-    var trends = (dash && dash.ok && dash.data && dash.data.trends) ? dash.data.trends : [];
-    if (trends.length) {
-      html += '<div class="ssb-panel"><div class="ssb-k">Your trends this week</div><div class="chip-row">';
-      trends.forEach(function(t){
-        var better = t.lowerIsBetter ? (t.to < t.from) : (t.to > t.from);
-        var arrow = (t.to === t.from) ? "→" : (t.to > t.from ? "↑" : "↓");
-        var col = (t.to === t.from) ? "#6b7a90" : (better ? "#2f7a3f" : "#b23b2e");
-        var u = t.unit || "";
-        html += '<span class="chip" style="color:' + col + ';border-color:' + col + '">' + esc(t.label) + ': ' + t.from + u + ' ' + arrow + ' ' + t.to + u + '</span>';
-      });
-      html += '</div></div>';
-    }
-
+    // 2. Today's challenge + streak.
     if (ch && ch.ok && ch.data) {
-      var plan = ch.data.plan || {}, items = ch.data.items || {};
-      html += '<div class="ssb-panel"><div class="ssb-k">Today’s challenge' + (plan.dayIndex ? ' <span class="muted" style="font-weight:400">(Day ' + plan.dayIndex + ')</span>' : '') + '</div>';
+      var plan = ch.data.plan || {};
+      html += '<div class="ssb-panel"><div class="ssb-k" style="display:flex;justify-content:space-between;align-items:center;gap:10px">' +
+        '<span>Today’s challenge' + (plan.dayIndex ? ' (Day ' + plan.dayIndex + ')' : '') + '</span>' +
+        (D.streak ? '<span style="color:#9a7a23;font-weight:700;text-transform:none;letter-spacing:0">' + D.streak + '-day streak</span>' : '') + '</div>';
       if (!plan.available) {
         html += '<p class="ssb-note">Your structured challenge begins on ' + esc(ch.data.startDate || "") + '.</p>';
       } else {
         var parts = (plan.due || []).map(function(dd){ return dd.count + ' ' + ssbModeName(dd.mode); });
-        html += '<p class="ssb-note">' + parts.join(' · ') + '</p>';
-        if (items.WAT && items.WAT.length) {
-          html += '<div class="chip-row" style="margin-top:6px">' + items.WAT.map(function(w){ return '<span class="chip">' + esc(w.word) + '</span>'; }).join('') + '</div>';
-        }
-        html += '<a class="btn primary" style="margin-top:12px" id="ssb-practice-today" href="ssb-test.html">Start today’s practice →</a>';
+        html += '<p class="ssb-note">' + parts.join(', ') + '</p>' +
+          '<a class="btn primary" style="margin-top:10px" href="ssb-test.html">Start today’s practice →</a>';
       }
       html += '</div>';
     }
 
-    host.innerHTML = html || '<div class="ssb-panel"><div class="ssb-k">Your structured SSB</div><p class="ssb-note">Your plan and weekly report will appear here as you practise.</p></div>';
-    // "Start today's practice" runs the test inside the portal (ssb-test.html).
+    // 3. OLQ radar (own shape, no target line).
+    if (D.radar && D.radar.length) {
+      html += '<div class="ssb-panel"><div class="ssb-k">Your officer-like qualities</div>' +
+        '<svg id="ssb-radar" width="100%" height="230" viewBox="0 0 360 230" role="img" aria-label="Your qualities"></svg>' +
+        (D.qualitiesNote ? '<p class="ssb-note" style="margin-top:4px">' + esc(D.qualitiesNote) + '</p>' : '') + '</div>';
+    }
+
+    // 4. Weekly report: what's improving + what to focus on (all words).
+    var wk = (D.weekly && D.weekly.report) ? D.weekly.report : null;
+    var hasImp = D.improving && D.improving.length;
+    if (hasImp || wk) {
+      html += '<div class="ssb-panel"><div class="ssb-k">Your weekly report</div>';
+      if (wk && wk.headline) html += '<p class="ssb-note">' + esc(wk.headline) + '</p>';
+      if (hasImp) {
+        html += '<div style="font-weight:700;margin:12px 0 4px">What’s improving</div>' +
+          '<ul style="margin:0;padding-left:18px">' + D.improving.map(function(s){ return '<li style="margin:5px 0">' + esc(s) + '</li>'; }).join('') + '</ul>';
+      }
+      if (wk && wk.focus && wk.focus.length) {
+        html += '<div style="font-weight:700;margin:14px 0 4px">What to focus on this week</div>';
+        wk.focus.forEach(function(f){
+          html += '<div style="margin-top:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px">' +
+            '<div style="font-weight:600">' + esc(f.pattern || "") + '</div>' +
+            (f.why ? '<div class="muted" style="font-size:13px;margin-top:3px">' + esc(f.why) + '</div>' : '') +
+            (f.action ? '<div style="font-size:13.5px;margin-top:6px"><strong>This week:</strong> ' + esc(f.action) + '</div>' : '') + '</div>';
+        });
+      } else if (!hasImp) {
+        html += '<p class="ssb-note">Your first weekly report appears after a few days of practice.</p>';
+      }
+      html += '</div>';
+    }
+
+    // 5. Where you're heading: forecast + recent practice.
+    if (D.forecast || (D.recent && D.recent.length)) {
+      html += '<div class="ssb-panel"><div class="ssb-k">Where you’re heading</div>';
+      if (D.forecast) html += '<p class="ssb-note">' + esc(D.forecast) + '</p>';
+      if (D.recent && D.recent.length) {
+        html += '<div style="font-weight:700;margin:12px 0 4px;font-size:13.5px">Recent practice</div>' +
+          '<ul style="margin:0;padding-left:18px;font-size:13.5px">' + D.recent.map(function(s){
+            var dt = (typeof fmtDate === "function") ? fmtDate(s.at) : new Date(s.at).toLocaleDateString();
+            return '<li style="margin:3px 0">' + esc(ssbModeName(s.mode)) + ' · ' + esc(dt) + '</li>';
+          }).join('') + '</ul>';
+      }
+      html += '</div>';
+    }
+
+    host.innerHTML = html || '<div class="ssb-panel"><div class="ssb-k">Your structured SSB</div><p class="ssb-note">Your dashboard builds as you practise. Start with today’s challenge.</p></div>';
+
+    var rsvg = document.getElementById("ssb-radar");
+    if (rsvg && D.radar && D.radar.length) drawSsbRadar(rsvg, D.radar);
+  }
+
+  function drawSsbRadar(svg, data){
+    var ns = "http://www.w3.org/2000/svg", cx = 180, cy = 112, R = 78, N = data.length, max = 10, step = 360 / N;
+    function pt(r, i){ var a = (i * step - 90) * Math.PI / 180; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }
+    function add(tag, attrs){ var e = document.createElementNS(ns, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); svg.appendChild(e); return e; }
+    [0.25, 0.5, 0.75, 1].forEach(function(f){
+      var d = data.map(function(_, i){ var p = pt(R * f, i); return (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1); }).join(" ") + "Z";
+      add("path", { d: d, fill: "none", stroke: "rgba(80,100,130,.18)", "stroke-width": "1" });
+    });
+    data.forEach(function(it, i){
+      var p = pt(R, i); add("line", { x1: cx, y1: cy, x2: p[0].toFixed(1), y2: p[1].toFixed(1), stroke: "rgba(80,100,130,.18)", "stroke-width": "1" });
+      var lp = pt(R + 16, i), t = add("text", { x: lp[0].toFixed(1), y: lp[1].toFixed(1), "font-size": "11", fill: "#54637a" });
+      t.textContent = it.label;
+      t.setAttribute("text-anchor", lp[0] > cx + 2 ? "start" : (lp[0] < cx - 2 ? "end" : "middle"));
+      t.setAttribute("dominant-baseline", lp[1] > cy + 2 ? "hanging" : (lp[1] < cy - 2 ? "auto" : "middle"));
+    });
+    var pts = data.map(function(it, i){ var p = pt(R * (it.value / max), i); return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" ");
+    add("polygon", { points: pts, fill: "rgba(201,162,75,.30)", stroke: "#c9a24b", "stroke-width": "2" });
+    data.forEach(function(it, i){ var p = pt(R * (it.value / max), i); add("circle", { cx: p[0].toFixed(1), cy: p[1].toFixed(1), r: "2.6", fill: "#c9a24b" }); });
   }
 
   async function loadSsb(){
-    loadSsbMentored();
     if (ssbLoaded) return; ssbLoaded = true;
+    if (!window.PRODUCT) { var meR = await api("/api/me"); window.PRODUCT = (meR && meR.data && meR.data.product) || ""; }
+    if (window.PRODUCT === "elite" || window.PRODUCT === "legend") {
+      // Mentored students use the tracked dashboard above; hide the old table view.
+      await loadSsbMentored();
+      var ob = document.getElementById("ssb-body"); if (ob) ob.hidden = true;
+      var om = document.getElementById("ssb-msg"); if (om) om.innerHTML = "";
+      return;
+    }
     var msg = document.getElementById("ssb-msg"), body = document.getElementById("ssb-body");
     msg.innerHTML = '<div class="muted" style="padding:6px 0">Loading…</div>';
     var r = await api("/api/ssb/me");

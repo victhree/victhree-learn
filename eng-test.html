@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>English Challenge | VicThree Defence</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/shield-32.png">
+<meta name="theme-color" content="#0B1F3A">
+<link rel="stylesheet" href="assets/portal.css">
+<style>
+  .eq-wrap{max-width:720px;margin:0 auto;padding:18px 16px 60px}
+  .eq-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+  .eq-phase{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#9a7a23}
+  .eq-card{background:#fff;border:1px solid var(--line,#e3dccb);border-radius:16px;padding:22px}
+  .eq-h{font-family:var(--serif,Georgia),serif;font-size:1.5rem;margin:0 0 6px;color:#0f2340}
+  .eq-sub{color:#54637a;margin:0 0 16px}
+  .eq-passage{font-family:"Times New Roman",Times,Georgia,serif;background:#f5f7fb;border:1px solid #d9e0ea;border-radius:12px;padding:14px 16px;margin:0 0 16px;color:#33435c;line-height:1.55;font-size:1.02rem}
+  .eq-q{border:1px solid var(--line,#e3dccb);border-radius:12px;padding:16px;margin-top:14px}
+  .eq-qn{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#9a7a23;margin-bottom:6px}
+  .eq-stem{font-family:"Times New Roman",Times,Georgia,serif;color:#0f2340;font-weight:700;line-height:1.4;font-size:1.08rem}
+  .eq-opts{margin-top:10px;display:grid;gap:8px}
+  .eq-opt{font-family:"Times New Roman",Times,Georgia,serif;display:flex;align-items:flex-start;gap:10px;border:1px solid #cdd6e3;border-radius:10px;padding:10px 12px;cursor:pointer;font-size:1.02rem;color:#33435c}
+  .eq-opt:hover{border-color:#0f2340}
+  .eq-opt input{margin-top:3px}
+  .eq-opt .lt{font-weight:700;color:#0f2340}
+  .eq-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+  /* review */
+  .eq-opt.correct{border-color:#2e7d4f;background:#eef7f1}
+  .eq-opt.wrong{border-color:#b23b2e;background:#fbeae8}
+  .eq-exp{margin-top:10px;font-size:.92rem;color:#33435c;background:#f7f8fb;border:1px solid #e3e8f0;border-radius:10px;padding:10px 12px}
+  .eq-exp b{color:#0f2340}
+  .eq-sum{background:#f5f7fb;border:1px solid #d9e0ea;border-radius:12px;padding:16px;margin:4px 0 10px;color:#0f2340}
+  .eq-sum .pct{font-size:1.8rem;font-weight:800}
+  .eq-msg{padding:14px;border-radius:12px;margin:10px 0}
+  .eq-msg.err{background:#fbeae8;border:1px solid #e3b4ad;color:#8a2b22}
+  .spin{display:inline-block;width:16px;height:16px;border:2px solid #cdd6e3;border-top-color:#0f2340;border-radius:50%;animation:sp 1s linear infinite;vertical-align:-3px;margin-right:8px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="banner-wrap">
+    <a href="dashboard.html" class="banner-link" aria-label="VicThree Defence"><img src="assets/banner.jpg" alt="VicThree Defence"></a>
+    <a class="hdr-action" href="dashboard.html#english">Exit</a>
+  </div>
+</header>
+
+<main class="eq-wrap">
+  <div class="eq-top">
+    <a class="back hdr-action" href="dashboard.html#english">&larr; English Progress</a>
+    <span class="eq-phase" id="phase">Today's English set</span>
+  </div>
+  <div id="stage"><div class="eq-card"><p class="eq-sub"><span class="spin"></span>Loading today's set…</p></div></div>
+</main>
+
+<script src="assets/portal.js"></script>
+<script>
+(function(){
+  if (typeof requireLogin === "function" && !requireLogin()) return;
+  var LETTERS = ["A","B","C","D","E","F"];
+  var stage = document.getElementById("stage");
+  var DATA = null;       // today's payload
+  var startTs = 0;
+
+  function esc(s){ return (typeof window.esc === "function") ? window.esc(s) : String(s==null?"":s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
+
+  async function boot(){
+    var r = await api("/api/eng/challenge/today");
+    if (!r || !r.ok) { stage.innerHTML = '<div class="eq-card"><div class="eq-msg err">Could not load today’s set. Please try again.</div></div>'; return; }
+    DATA = r.data || {};
+    if (!DATA.available) {
+      var why = DATA.weekend
+        ? "It’s the weekend. Your weekly report is on the English Progress page. Your next set unlocks on Monday."
+        : "Your daily English challenge starts once your course begins.";
+      stage.innerHTML = '<div class="eq-card"><h1 class="eq-h">Nothing due right now</h1><p class="eq-sub">' + esc(why) + '</p>'
+        + '<a class="btn primary" href="dashboard.html#english">Back to English Progress</a></div>';
+      return;
+    }
+    renderForm();
+  }
+
+  function renderForm(){
+    var items = DATA.items || [];
+    var html = '<div class="eq-card">'
+      + '<div class="eq-qn">' + esc(DATA.theme || "English") + (DATA.week ? ' · Week ' + DATA.week : '') + '</div>'
+      + '<h1 class="eq-h">Today’s English set</h1>'
+      + '<p class="eq-sub">' + items.length + ' questions. Pick the best option for each, then submit to see your score and the explanations.</p>';
+    if (DATA.passage && DATA.passage.text) {
+      html += '<div class="eq-passage">' + esc(DATA.passage.text) + '</div>';
+    }
+    items.forEach(function(q, i){
+      html += '<div class="eq-q" data-id="' + esc(q.id) + '">'
+        + '<div class="eq-qn">Question ' + (i+1) + '</div>'
+        + '<div class="eq-stem">' + esc(q.question) + '</div>'
+        + '<div class="eq-opts">';
+      (q.options || []).forEach(function(opt, oi){
+        html += '<label class="eq-opt"><input type="radio" name="q_' + esc(q.id) + '" value="' + oi + '">'
+          + '<span class="lt">' + LETTERS[oi] + '.</span><span>' + esc(opt) + '</span></label>';
+      });
+      html += '</div></div>';
+    });
+    html += '<div class="eq-actions"><button class="btn primary" id="submit">Submit answers</button></div></div>';
+    stage.innerHTML = html;
+    startTs = Date.now();
+    document.getElementById("submit").addEventListener("click", submit);
+  }
+
+  async function submit(){
+    var btn = document.getElementById("submit");
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Scoring…';
+    var items = (DATA.items || []).map(function(q){
+      var sel = document.querySelector('input[name="q_' + (window.CSS && CSS.escape ? CSS.escape(q.id) : q.id) + '"]:checked');
+      return { id: q.id, chosen: sel ? parseInt(sel.value, 10) : null };
+    });
+    var seconds = Math.round((Date.now() - startTs) / 1000);
+    var r = await api("/api/eng/attempt", { method:"POST", body:{ week: DATA.week, seconds: seconds, items: items } });
+    if (!r || !r.ok) { btn.disabled = false; btn.textContent = "Submit answers";
+      stage.insertAdjacentHTML("afterbegin", '<div class="eq-msg err">Could not submit. Please try again.</div>'); return; }
+    renderResult(r.data || {});
+  }
+
+  function renderResult(res){
+    var review = res.review || [];
+    var html = '<div class="eq-card">'
+      + '<div class="eq-qn">' + esc(DATA.theme || "English") + '</div>'
+      + '<div class="eq-sum"><div class="pct">' + (res.percent != null ? res.percent : 0) + '%</div>'
+      + 'You scored ' + (res.score || 0) + ' out of ' + (res.total || review.length) + '. This is practice, keep it steady.</div>';
+    if (DATA.passage && DATA.passage.text) html += '<div class="eq-passage">' + esc(DATA.passage.text) + '</div>';
+    review.forEach(function(q, i){
+      html += '<div class="eq-q"><div class="eq-qn">Question ' + (i+1) + (q.isCorrect ? ' · correct' : ' · review') + '</div>'
+        + '<div class="eq-stem">' + esc(q.question) + '</div><div class="eq-opts">';
+      (q.options || []).forEach(function(opt, oi){
+        var cls = "eq-opt";
+        if (oi === q.correct) cls += " correct";
+        else if (oi === q.chosen && q.chosen !== q.correct) cls += " wrong";
+        html += '<div class="' + cls + '"><span class="lt">' + LETTERS[oi] + '.</span><span>' + esc(opt) + '</span></div>';
+      });
+      html += '</div>';
+      if (q.chosen == null) html += '<div class="eq-exp">You left this one blank.</div>';
+      if (q.explanation) html += '<div class="eq-exp"><b>Why:</b> ' + esc(q.explanation) + '</div>';
+      html += '</div>';
+    });
+    html += '<div class="eq-actions"><a class="btn primary" href="dashboard.html#english">Back to English Progress</a></div></div>';
+    stage.innerHTML = html;
+    window.scrollTo(0, 0);
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>

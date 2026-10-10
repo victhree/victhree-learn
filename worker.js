@@ -139,6 +139,61 @@ function ssbChallengePlan(startDate, nowMs) {
   return { dayIndex, available: true, unlockAt: unlockTime(startDate, dayIndex), due };
 }
 
+/* ========== Daily challenge rotation (shared by SSB + English) ============ */
+// Hero is excluded from the daily challenges; trial/elite/legend get them, i.e. the
+// exact gate the SSB dashboard already uses.
+const canSeeChallenges = canSeeSsb;
+
+// English daily-challenge banks: one normalised JSON file per theme, served from the
+// English Pages site. Each file: { theme, questions:[{id,theme,level,question,
+// options[],answer(0-based),explanation,passageId?}], passages?:{ id:{level,text} } }.
+const ENGLISH_DATA_BASE = "https://victhree.github.io/victhree-english/data/english-daily";
+
+// The 13-week rotation, read by BOTH systems. One focus per week; a student's week is
+// their calendar week since the Monday of their start week (1..13, then held at 13).
+// english.level: 1 = standard, 2 = advanced, 0 = mixed (both). passage:true pulls one
+// reading/cloze passage plus its questions instead of loose questions.
+const CHALLENGE_SCHEDULE = [
+  { ssb: { mode: "PPDT", perDay: 1 }, english: { label: "Synonyms and Antonyms", themes: ["synonyms", "antonyms"], level: 1, perDay: 10 } },
+  { ssb: { mode: "WAT", perDay: 5 }, english: { label: "One-Word Substitution and Idioms", themes: ["one-word-substitution", "idioms"], level: 1, perDay: 10 } },
+  { ssb: { mode: "SRT", perDay: 5 }, english: { label: "Confused Words, Spelling and Vocabulary in Context", themes: ["confused-words", "spelling", "vocab-in-context"], level: 1, perDay: 10 } },
+  { ssb: { mode: "SDT", perDay: 1 }, english: { label: "Parts of Speech, Nouns and Pronouns", themes: ["nouns", "pronouns"], level: 1, perDay: 10 } },
+  { ssb: { mode: "TAT", perDay: 1 }, english: { label: "Articles, Determiners, Adjectives and Degrees", themes: ["articles", "adjectives"], level: 1, perDay: 10 } },
+  { ssb: { mode: "GPE", perWeek: 3 }, english: { label: "Verbs, Tenses and Subject-Verb Agreement", themes: ["verbs-tenses", "subject-verb-agreement"], level: 1, perDay: 10 } },
+  { ssb: { mode: "PPDT", perDay: 1 }, english: { label: "Adverbs, Prepositions and Conjunctions", themes: ["adverbs", "prepositions", "conjunctions"], level: 2, perDay: 10 } },
+  { ssb: { mode: "WAT", perDay: 5 }, english: { label: "Voice, Narration and Transformation", themes: ["voice", "narration"], level: 2, perDay: 10 } },
+  { ssb: { mode: "SRT", perDay: 5 }, english: { label: "Spotting Errors and Sentence Improvement", themes: ["spotting-errors", "sentence-completion"], level: 2, perDay: 12 } },
+  { ssb: { mode: "TAT", perDay: 1 }, english: { label: "Reading Comprehension and Cloze", themes: ["reading-comprehension", "cloze"], level: 2, perDay: 10, passage: true } },
+  { ssb: { mode: "GPE", perWeek: 3 }, english: { label: "Sentence Completion, Ordering and Co-relationship", themes: ["sentence-completion", "ordering-of-words", "ordering-of-sentences"], level: 2, perDay: 10 } },
+  { ssb: { mode: "MIX", perDay: 5, modes: ["WAT", "SRT", "TAT"] }, english: { label: "Mixed revision (all topics)", themes: ["synonyms", "antonyms", "idioms", "confused-words", "spotting-errors", "sentence-completion", "prepositions", "verbs-tenses"], level: 0, perDay: 15 } },
+  { ssb: { mode: "MIX", perDay: 5, modes: ["WAT", "SRT", "TAT"] }, english: { label: "High-yield revision, exam style", themes: ["synonyms", "antonyms", "one-word-substitution", "idioms", "spotting-errors", "sentence-completion", "articles", "subject-verb-agreement"], level: 0, perDay: 15 } }
+];
+function scheduleForWeek(wk) { return CHALLENGE_SCHEDULE[Math.max(0, Math.min(12, (wk | 0) - 1))]; }
+
+// Calendar-week helpers. A date string is an IST 'YYYY-MM-DD'; we align weeks to the
+// Monday of the student's start week, so challenges, the rotation and the Monday cron
+// all line up on Mon..Sun.
+function dateMsUTC(dateStr) { const [y, m, d] = String(dateStr).split("-").map(Number); return Date.UTC(y, (m || 1) - 1, d || 1); }
+function weekMondayMs(dateStr) { const ms = dateMsUTC(dateStr); const dow = (new Date(ms).getUTCDay() + 6) % 7; return ms - dow * DAY_MS; }
+function challengeWeek(startDate, nowMs) {
+  const a = weekMondayMs(startDate), b = weekMondayMs(istDateStr(nowMs || Date.now()));
+  return Math.max(1, Math.min(13, Math.floor((b - a) / (7 * DAY_MS)) + 1));
+}
+function istWeekdayIndex(nowMs) { const ms = dateMsUTC(istDateStr(nowMs || Date.now())); return (new Date(ms).getUTCDay() + 6) % 7; } // 0=Mon..6=Sun
+
+const ENG_THEME_LABELS = {
+  "synonyms": "Synonyms", "antonyms": "Antonyms", "one-word-substitution": "One-Word Substitution",
+  "idioms": "Idioms and Phrases", "confused-words": "Confused Words", "spelling": "Spelling",
+  "vocab-in-context": "Vocabulary in Context", "nouns": "Nouns", "pronouns": "Pronouns",
+  "articles": "Articles", "adjectives": "Adjectives and Degrees", "verbs-tenses": "Verbs and Tenses",
+  "subject-verb-agreement": "Subject-Verb Agreement", "adverbs": "Adverbs", "prepositions": "Prepositions",
+  "conjunctions": "Conjunctions", "voice": "Voice", "narration": "Narration",
+  "spotting-errors": "Spotting Errors", "reading-comprehension": "Reading Comprehension",
+  "ordering-of-words": "Ordering of Words", "ordering-of-sentences": "Ordering of Sentences",
+  "cloze": "Cloze", "sentence-completion": "Sentence Completion"
+};
+function engThemeLabel(k) { return ENG_THEME_LABELS[k] || String(k || "").replace(/-/g, " "); }
+
 /* ============================== ROUTER ==================================== */
 
 export default {
@@ -168,6 +223,12 @@ export default {
       if (path === "/api/ssb/challenge/today" && request.method === "GET") return await withAuth(request, env, cors, ssbChallengeToday, url);
       if (path === "/api/ssb/analyze"       && request.method === "POST") return await withAuth(request, env, cors, ssbAnalyze, url);
       if (path === "/api/ssb/dashboard"     && request.method === "GET")  return await withAuth(request, env, cors, ssbDashboard, url);
+      // ---- Daily English challenge (trial/elite/legend; hero excluded) ----
+      if (path === "/api/eng/challenge/today" && request.method === "GET")  return await withAuth(request, env, cors, engChallengeToday, url);
+      if (path === "/api/eng/attempt"         && request.method === "POST") return await withAuth(request, env, cors, engAttempt, url);
+      if (path === "/api/eng/dashboard"       && request.method === "GET")  return await withAuth(request, env, cors, engDashboard, url);
+      if (path === "/api/admin/eng/roster"    && request.method === "GET")  return await adminEngRoster(request, env, cors);
+      if (path === "/api/admin/eng/student"   && request.method === "GET")  return await adminEngStudent(request, env, cors, url);
       if (path === "/api/admin/ssb/roster"  && request.method === "GET")  return await adminSsbRoster(request, env, cors);
       if (path === "/api/admin/ssb/student" && request.method === "GET")  return await adminSsbStudent(request, env, cors, url);
       if (path === "/api/admin/ssb/run-weekly" && request.method === "POST") return await adminRunWeekly(request, env, cors, url);
@@ -198,6 +259,7 @@ export default {
     ).all();
     for (const s of (studs.results || [])) {
       try { await generateWeekly(env, s, fromMs, toMs); } catch (e) { /* skip this student, continue */ }
+      try { await generateEnglishWeekly(env, s, fromMs, toMs); } catch (e) { /* english report is independent */ }
     }
   }
 };
@@ -784,47 +846,66 @@ function selectByOlq(bank, count, seed, weak, varietyPick) {
   return picked.slice(0, count);
 }
 
-// SSB dashboard — today's structured set for a mentored student: WHAT is due
-// (dripped from course start) PLUS the actual items from the shared content bank.
-// Phase 2 (real per-item OLQ tags): WAT and SRT are selected so ~65% of items
-// cover the student's weakest OLQs (gatekeepers first), the rest varied. Stable
-// per day; shifts as the profile changes.
+// SSB dashboard — today's structured set for a mentored student, driven by the shared
+// 13-week rotation: the student's calendar week picks the SSB mode (PPDT, WAT, SRT,
+// SDT, TAT, GPE, or a mixed revision set). WAT/SRT stay OLQ-adaptive (~65% of items
+// cover the weakest OLQs). SDT runs one of the five fixed questions per weekday; GPE is
+// a weekly task (same scenarios all week). Stable per day; shifts as the profile moves.
 async function ssbChallengeToday(env, cors, user) {
   if (!canSeeSsb(user)) return json({ error: "no_ssb_access" }, 403, cors);
   const plan = ssbChallengePlan(user.start_date);
   if (!plan.available) return json({ tier: user.product, startDate: user.start_date, plan, items: null, itemsReady: false }, 200, cors);
 
   const di = plan.dayIndex;
+  const week = challengeWeek(user.start_date);
+  const sched = scheduleForWeek(week).ssb;
+  const wd = istWeekdayIndex(); // 0=Mon..6=Sun (for SDT's one-question-per-weekday)
 
-  // Weakest OLQs (gatekeepers first) drive the item selection and the emphasis.
+  // Weakest OLQs (gatekeepers first) drive WAT/SRT selection and the emphasis.
   const prof = await env.DB.prepare(
     "SELECT olq, reflected_count, work_count FROM ssb_olq_profile WHERE student_id = ?"
   ).bind(user.id).all();
   const weak = weakOlqsPrioritized(prof.results || []);
   const focus = weak.slice(0, 3);
 
-  const [wat, srt] = await Promise.all([fetchBank("wat"), fetchBank("srt")]);
-  const watSel = selectByOlq(wat, SSB_DAILY.WAT, di, weak, watVariety);
-  const srtSel = selectByOlq(srt, SSB_DAILY.SRT, di, weak, srtVariety);
-  const items = {
-    WAT: watSel.map(x => ({ id: x.id, word: x.word, type: x.type, olqs: x.olqs || [] })),
-    SRT: srtSel.map(x => ({ id: x.id, tag: x.tag, situation: x.situation, olqs: x.olqs || [] }))
-  };
-  if (di % SSB_TAT_EVERY === 0) {
-    const tat = await fetchBank("tat");
-    items.TAT = pickN(tat, 1, di).map(x => ({ id: x.id, image_url: x.image_url }));
-  }
-  if (di % SSB_SDT_EVERY === 0) {
-    const sdt = await fetchBank("sdt");
-    items.SDT = pickN(sdt, 1, di).map(x => ({ id: x.id, prompt: x.prompt }));
+  const items = {};
+  const due = [];
+  const coverage = []; // WAT/SRT items whose olqs feed `targeting`
+
+  async function addWAT(count, seed) { const wat = await fetchBank("wat"); const sel = selectByOlq(wat, count, seed, weak, watVariety); items.WAT = sel.map(x => ({ id: x.id, word: x.word, type: x.type, olqs: x.olqs || [] })); if (items.WAT.length) due.push({ mode: "WAT", count: items.WAT.length }); return sel; }
+  async function addSRT(count, seed) { const srt = await fetchBank("srt"); const sel = selectByOlq(srt, count, seed, weak, srtVariety); items.SRT = sel.map(x => ({ id: x.id, tag: x.tag, situation: x.situation, olqs: x.olqs || [] })); if (items.SRT.length) due.push({ mode: "SRT", count: items.SRT.length }); return sel; }
+  async function addTAT(count, seed) { const tat = await fetchBank("tat"); items.TAT = pickN(tat, count, seed).map(x => ({ id: x.id, image_url: x.image_url })); if (items.TAT.length) due.push({ mode: "TAT", count: items.TAT.length }); }
+  async function addPPDT(count, seed) { const p = await fetchBank("ppdt"); items.PPDT = pickN(p, count, seed).map(x => ({ id: x.id, image_url: x.image_url })); if (items.PPDT.length) due.push({ mode: "PPDT", count: items.PPDT.length }); }
+  async function addSDT() { const sdt = await fetchBank("sdt"); const idx = Math.min(4, Math.max(0, wd)); const one = sdt[idx] || pickN(sdt, 1, di)[0]; items.SDT = one ? [{ id: one.id, prompt: one.prompt }] : []; if (items.SDT.length) due.push({ mode: "SDT", count: 1 }); }
+  async function addGPE(count, seed) { const g = await fetchBank("gpe"); items.GPE = pickN(g, count, seed).map(x => ({ id: x.id, title: x.title, tag: x.tag, deadline: x.deadline, scenario: x.scenario })); if (items.GPE.length) due.push({ mode: "GPE", count: items.GPE.length }); }
+
+  if (sched.mode === "MIX") {
+    // Revision weeks: an exam-style mixed set (two words, two situations, one picture story).
+    const w = await addWAT(2, di);
+    const s = await addSRT(2, di + 5);
+    await addTAT(1, di + 11);
+    w.forEach(x => coverage.push(x)); s.forEach(x => coverage.push(x));
+  } else if (sched.mode === "WAT") {
+    (await addWAT(sched.perDay, di)).forEach(x => coverage.push(x));
+  } else if (sched.mode === "SRT") {
+    (await addSRT(sched.perDay, di)).forEach(x => coverage.push(x));
+  } else if (sched.mode === "TAT") {
+    await addTAT(sched.perDay || 1, di);
+  } else if (sched.mode === "PPDT") {
+    await addPPDT(sched.perDay || 1, di);
+  } else if (sched.mode === "SDT") {
+    await addSDT();
+  } else if (sched.mode === "GPE") {
+    await addGPE(sched.perWeek || 2, 1000 + week); // same scenarios across the week
   }
 
-  // Which weak OLQs today's selected items actually cover (transparency).
+  plan.due = due; // reflect this week's focus in the dashboard challenge card
+
   const covered = new Set();
-  watSel.concat(srtSel).forEach(it => (it.olqs || []).forEach(o => { if (focus.indexOf(o) !== -1) covered.add(o); }));
+  coverage.forEach(it => (it.olqs || []).forEach(o => { if (focus.indexOf(o) !== -1) covered.add(o); }));
   const targeting = Array.from(covered);
 
-  return json({ tier: user.product, startDate: user.start_date, plan, items, focus_olqs: focus, targeting, itemsReady: true }, 200, cors);
+  return json({ tier: user.product, startDate: user.start_date, week, focusMode: sched.mode, plan, items, focus_olqs: focus, targeting, itemsReady: true }, 200, cors);
 }
 
 // Store one completed course SSB session (engine analysis `data` + the raw `items`).
@@ -1066,6 +1147,293 @@ async function ssbDashboard(env, cors, user) {
   const weekly = wk ? { weekStart: wk.week_start, report: safeObj(wk.student_report), createdAt: wk.created_at } : null;
 
   return json({ tier: user.product, totalSessions: total, statusLine, radar, qualitiesNote, movements: movementsOut.slice(0, 6), situations, examples, forecast, streak, weekly, recent: sessions.slice(0, 8) }, 200, cors);
+}
+
+/* ===================== DAILY ENGLISH CHALLENGE ============================ */
+// Mirrors the SSB tracking layer, but English is objective MCQ: scoring is exact and
+// done here on the server, and the weekly report is computed from the stored rows (no
+// AI engine, so it never touches the Gemini quota). Content is the normalised per-theme
+// JSON on the English Pages site, keyed to the shared 13-week rotation.
+
+// Fetch one normalised English theme file (cached at the edge).
+async function fetchEngTheme(theme) {
+  try {
+    const res = await fetch(ENGLISH_DATA_BASE + "/" + theme + ".json", { cf: { cacheTtl: 3600, cacheEverything: true } });
+    if (!res.ok) return { questions: [], passages: {} };
+    const o = await res.json();
+    return {
+      questions: Array.isArray(o.questions) ? o.questions : [],
+      passages: (o.passages && typeof o.passages === "object") ? o.passages : {}
+    };
+  } catch { return { questions: [], passages: {} }; }
+}
+function levelFilter(qs, level) { return level === 0 ? qs : qs.filter(q => (q.level || 1) === level); }
+
+// Build today's English set for a student: deterministic per student per day, spread
+// across the week's themes for breadth. For the reading week it returns one passage
+// and its questions instead of loose items.
+async function engDailySet(sched, dayIndex, seedBase) {
+  const eng = sched.english;
+  const seed = (seedBase | 0) + (dayIndex | 0);
+  const pools = await Promise.all(eng.themes.map(fetchEngTheme));
+
+  if (eng.passage) {
+    const plist = [];
+    pools.forEach(p => Object.keys(p.passages || {}).forEach(pid => {
+      const pg = p.passages[pid];
+      if (eng.level === 0 || (pg.level || 1) === eng.level) {
+        plist.push({ pid, text: pg.text, qs: p.questions.filter(q => q.passageId === pid) });
+      }
+    }));
+    if (!plist.length) return { items: [], passage: null };
+    const chosen = plist[((seed % plist.length) + plist.length) % plist.length];
+    return { items: chosen.qs.slice(0, eng.perDay), passage: { id: chosen.pid, text: chosen.text } };
+  }
+
+  const perTheme = pools.map(p => levelFilter(p.questions, eng.level));
+  const out = [], used = new Set(); const need = eng.perDay;
+  let ti = 0, guard = 0;
+  while (out.length < need && guard < need * eng.themes.length + 40) {
+    const pool = perTheme[ti % perTheme.length];
+    if (pool && pool.length) {
+      const start = (((seed + ti) % pool.length) + pool.length) % pool.length;
+      for (let k = 0; k < pool.length; k++) {
+        const cand = pool[(start + k) % pool.length];
+        if (!used.has(cand.id)) { used.add(cand.id); out.push(cand); break; }
+      }
+    }
+    ti++; guard++;
+  }
+  return { items: out.slice(0, need), passage: null };
+}
+
+// GET today's English set. Answers are never sent to the browser; scoring is on submit.
+async function engChallengeToday(env, cors, user) {
+  if (!canSeeChallenges(user)) return json({ error: "no_challenge_access" }, 403, cors);
+  const plan = ssbChallengePlan(user.start_date);
+  const week = challengeWeek(user.start_date);
+  const sched = scheduleForWeek(week);
+  const theme = sched.english.label;
+  if (!plan.available) {
+    return json({ product: user.product, week, theme, available: false, weekend: false, startDate: user.start_date, unlockAt: plan.unlockAt, items: [], passage: null }, 200, cors);
+  }
+  if (istWeekdayIndex() >= 5) { // Sat/Sun: no new set, the weekend report stands in
+    return json({ product: user.product, week, theme, available: false, weekend: true, items: [], passage: null }, 200, cors);
+  }
+  const { items, passage } = await engDailySet(sched, plan.dayIndex, user.id * 1000);
+  const safe = items.map((q, i) => ({ n: i + 1, id: q.id, theme: q.theme, question: q.question, options: q.options }));
+  return json({ product: user.product, week, theme, perDay: sched.english.perDay, available: true, weekend: false, dayIndex: plan.dayIndex, passage, items: safe }, 200, cors);
+}
+
+// POST a completed English set. Server rebuilds the answer key from the week's banks,
+// scores deterministically, stores the session + per-question rows + topic tallies, and
+// returns a review (correct answer + explanation per item) for the student.
+async function engAttempt(env, cors, user, url, request) {
+  if (!canSeeChallenges(user)) return json({ error: "no_challenge_access" }, 403, cors);
+  const b = await readJson(request);
+  const week = clampInt(b.week, 1, 13) || challengeWeek(user.start_date);
+  const sched = scheduleForWeek(week);
+  const answers = Array.isArray(b.items) ? b.items.slice(0, 60) : [];
+  if (!answers.length) return json({ error: "no_items" }, 400, cors);
+  const seconds = clampInt(b.seconds, 0, 100000);
+
+  const pools = await Promise.all(sched.english.themes.map(fetchEngTheme));
+  const key = {}; pools.forEach(p => p.questions.forEach(q => { key[q.id] = q; }));
+
+  const now = Date.now();
+  let correct = 0, attempted = 0;
+  const perTheme = {}, itemRows = [], review = [];
+  answers.forEach((a, i) => {
+    const q = key[a.id]; if (!q) return;
+    const chosen = (a.chosen == null || a.chosen === "") ? null : clampInt(a.chosen, 0, 3);
+    const isC = chosen != null && chosen === q.answer;
+    if (chosen != null) attempted++;
+    if (isC) correct++;
+    const t = q.theme || sched.english.themes[0];
+    (perTheme[t] = perTheme[t] || { seen: 0, correct: 0 }); perTheme[t].seen++; if (isC) perTheme[t].correct++;
+    itemRows.push({ id: q.id, theme: t, n: i + 1, question: q.question, options: q.options, chosen, answer: q.answer, isC, explanation: q.explanation });
+    review.push({ n: i + 1, question: q.question, options: q.options, chosen, correct: q.answer, isCorrect: isC, explanation: q.explanation });
+  });
+  if (!itemRows.length) return json({ error: "no_known_items" }, 400, cors);
+  const itemsCount = itemRows.length;
+
+  const metrics = { week, theme: sched.english.label, perTheme };
+  const ins = await env.DB.prepare(
+    `INSERT INTO english_attempts (student_id, week_index, theme, created_at, items_count, attempted_count, correct_count, seconds_used, metrics)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(user.id, week, sched.english.label, now, itemsCount, attempted, correct, seconds, JSON.stringify(metrics)).run();
+  const sessionId = (ins && ins.meta) ? ins.meta.last_row_id : null;
+
+  const stmts = [];
+  itemRows.forEach(r => stmts.push(env.DB.prepare(
+    `INSERT INTO english_items (session_id, student_id, theme, source, n, question, options, chosen_index, correct_index, is_correct, explanation, created_at)
+     VALUES (?, ?, ?, 'challenge', ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(sessionId, user.id, r.theme, r.n, String(r.question).slice(0, 600), JSON.stringify(r.options || []), r.chosen, r.answer, r.isC ? 1 : 0, String(r.explanation || "").slice(0, 1000), now)));
+  Object.keys(perTheme).forEach(t => { const pt = perTheme[t]; stmts.push(env.DB.prepare(
+    `INSERT INTO english_topic_profile (student_id, topic, seen_count, correct_count, last_seen_at)
+     VALUES (?, ?, ?, ?, ?) ON CONFLICT(student_id, topic) DO UPDATE SET
+       seen_count = seen_count + excluded.seen_count, correct_count = correct_count + excluded.correct_count, last_seen_at = excluded.last_seen_at`
+  ).bind(user.id, t, pt.seen, pt.correct, now)); });
+  if (stmts.length) await env.DB.batch(stmts);
+
+  return json({ ok: true, score: correct, total: itemsCount, attempted, percent: itemsCount ? Math.round(correct / itemsCount * 100) : 0, review }, 200, cors);
+}
+
+// Student English dashboard (deterministic): overall accuracy, accuracy-over-time,
+// per-topic bars, movement ticker, missed-question examples, streak, weekly report.
+async function engDashboard(env, cors, user) {
+  if (!canSeeChallenges(user)) return json({ error: "no_challenge_access" }, 403, cors);
+  const now = Date.now();
+  const att = await env.DB.prepare(
+    `SELECT week_index, theme, created_at, items_count, attempted_count, correct_count, metrics
+     FROM english_attempts WHERE student_id = ? ORDER BY created_at DESC LIMIT 200`
+  ).bind(user.id).all();
+  const rows = att.results || [];
+  const total = rows.length;
+  const totQ = rows.reduce((a, r) => a + (r.items_count || 0), 0);
+  const totC = rows.reduce((a, r) => a + (r.correct_count || 0), 0);
+  const overallPct = totQ ? Math.round(totC / totQ * 100) : 0;
+  const accuracy = rows.slice(0, 10).reverse().map(r => ({ at: r.created_at, v: r.items_count ? Math.round(r.correct_count / r.items_count * 100) : 0 }));
+
+  const prof = await env.DB.prepare(
+    "SELECT topic, seen_count, correct_count FROM english_topic_profile WHERE student_id = ?"
+  ).bind(user.id).all();
+  const topics = (prof.results || []).map(p => ({ topic: p.topic, label: engThemeLabel(p.topic), pct: p.seen_count ? Math.round(p.correct_count / p.seen_count * 100) : 0, seen: p.seen_count })).sort((a, b) => b.seen - a.seen);
+  const ranked = topics.filter(t => t.seen >= 5);
+  const strong = ranked.slice().sort((a, b) => b.pct - a.pct).slice(0, 2);
+  const weak = ranked.slice().sort((a, b) => a.pct - b.pct).slice(0, 2);
+
+  const days = {}; rows.forEach(a => { days[istDateStr(a.created_at)] = true; });
+  const keyf = dt => dt.toISOString().slice(0, 10);
+  let streak = 0, d = new Date(now + 330 * 60000);
+  if (!days[keyf(d)]) d = new Date(d.getTime() - DAY_MS);
+  while (days[keyf(d)]) { streak++; d = new Date(d.getTime() - DAY_MS); }
+
+  const movements = [];
+  if (total) movements.push("Overall accuracy " + overallPct + "%");
+  strong.forEach(t => movements.push(t.label + " is strong at " + t.pct + "%"));
+  weak.forEach(t => movements.push(t.label + " needs work at " + t.pct + "%"));
+  if (streak >= 2) movements.push(streak + "-day streak going");
+
+  const miss = await env.DB.prepare(
+    "SELECT question, options, chosen_index, correct_index, explanation FROM english_items WHERE student_id = ? AND is_correct = 0 ORDER BY created_at DESC LIMIT 40"
+  ).bind(user.id).all();
+  const examples = [];
+  (miss.results || []).forEach(r => {
+    if (examples.length >= 3) return;
+    const opts = safeArr(r.options);
+    examples.push({
+      question: r.question,
+      your: (r.chosen_index != null && opts[r.chosen_index] != null) ? opts[r.chosen_index] : "(skipped)",
+      correct: opts[r.correct_index] != null ? opts[r.correct_index] : "",
+      explanation: r.explanation || ""
+    });
+  });
+
+  const wk = await env.DB.prepare(
+    "SELECT week_start, student_report, created_at FROM english_weekly_reports WHERE student_id = ? ORDER BY week_start DESC LIMIT 1"
+  ).bind(user.id).first();
+  const weekly = wk ? { weekStart: wk.week_start, report: safeObj(wk.student_report), createdAt: wk.created_at } : null;
+
+  const curWeek = challengeWeek(user.start_date);
+  const statusLine = !total
+    ? "Your English practice starts here. Do today's set to begin building your picture."
+    : ("Overall accuracy " + overallPct + "% across " + total + " set" + (total > 1 ? "s" : "") + ". Keep the daily set going.");
+
+  return json({
+    product: user.product, totalSets: total, overallPct, statusLine, accuracy, topics, strong, weak,
+    movements, examples, streak, weekly, currentWeek: curWeek, currentTheme: scheduleForWeek(curWeek).english.label,
+    recent: rows.slice(0, 8).map(r => ({ at: r.created_at, theme: r.theme, score: r.correct_count, total: r.items_count }))
+  }, 200, cors);
+}
+
+// Deterministic weekend English report for [fromMs, toMs): plain-language for the
+// student, a full by-theme breakdown for the admin. Written to english_weekly_reports.
+async function generateEnglishWeekly(env, student, fromMs, toMs) {
+  const att = await env.DB.prepare(
+    `SELECT theme, created_at, items_count, attempted_count, correct_count, metrics
+     FROM english_attempts WHERE student_id = ? AND created_at >= ? AND created_at < ? ORDER BY created_at ASC`
+  ).bind(student.id, fromMs, toMs).all();
+  const rows = att.results || [];
+  if (!rows.length) return null;
+
+  const totQ = rows.reduce((a, r) => a + (r.items_count || 0), 0);
+  const totC = rows.reduce((a, r) => a + (r.correct_count || 0), 0);
+  const pct = totQ ? Math.round(totC / totQ * 100) : 0;
+
+  const perTheme = {};
+  rows.forEach(r => { const m = safeObj(r.metrics); const pt = (m && m.perTheme) || {}; Object.keys(pt).forEach(t => { (perTheme[t] = perTheme[t] || { seen: 0, correct: 0 }); perTheme[t].seen += pt[t].seen || 0; perTheme[t].correct += pt[t].correct || 0; }); });
+  const themeArr = Object.keys(perTheme).map(t => ({ theme: t, label: engThemeLabel(t), seen: perTheme[t].seen, pct: perTheme[t].seen ? Math.round(perTheme[t].correct / perTheme[t].seen * 100) : 0 }));
+  const strong = themeArr.filter(t => t.seen >= 3).sort((a, b) => b.pct - a.pct).slice(0, 2);
+  const weak = themeArr.filter(t => t.seen >= 3).sort((a, b) => a.pct - b.pct).slice(0, 2);
+
+  const prev = await env.DB.prepare(
+    "SELECT items_count, correct_count FROM english_attempts WHERE student_id = ? AND created_at >= ? AND created_at < ?"
+  ).bind(student.id, fromMs - 7 * DAY_MS, fromMs).all();
+  const pQ = (prev.results || []).reduce((a, r) => a + (r.items_count || 0), 0);
+  const pC = (prev.results || []).reduce((a, r) => a + (r.correct_count || 0), 0);
+  const prevPct = pQ ? Math.round(pC / pQ * 100) : null;
+  const trend = (prevPct == null) ? "" : (pct > prevPct ? ("up from " + prevPct + "% last week") : (pct < prevPct ? ("down from " + prevPct + "% last week") : "steady versus last week"));
+
+  const headline = "You scored " + pct + "% this week" + (trend ? ", " + trend : "") + ". This is practice, keep it steady.";
+  const focus = [];
+  weak.forEach(t => focus.push({ pattern: t.label + " is your weakest area at " + t.pct + "%", why: "This question type recurs in the CDS paper.", action: "Redo the " + t.label.toLowerCase() + " set and read each explanation." }));
+  if (strong[0]) focus.push({ pattern: strong[0].label + " is your strongest at " + strong[0].pct + "%", why: "You can bank these marks.", action: "Keep it warm with a quick revision." });
+  if (!focus.length) focus.push({ pattern: "A steady week across topics", why: "Consistency is what builds the score.", action: "Keep doing the daily set." });
+
+  const studentReport = { headline, focus };
+  const adminReport = { overall: { pct, questions: totQ, correct: totC, sets: rows.length }, trend: { thisWeek: pct, lastWeek: prevPct }, byTheme: themeArr.sort((a, b) => a.pct - b.pct) };
+
+  await env.DB.prepare(
+    `INSERT INTO english_weekly_reports (student_id, week_start, student_report, admin_report, created_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(student_id, week_start) DO UPDATE SET
+       student_report = excluded.student_report, admin_report = excluded.admin_report, created_at = excluded.created_at`
+  ).bind(student.id, istDateStr(fromMs), JSON.stringify(studentReport), JSON.stringify(adminReport), Date.now()).run();
+  return { studentReport, adminReport };
+}
+
+// Admin: English roster (active trial/elite/legend) with each student's set count +
+// overall accuracy, most recent first.
+async function adminEngRoster(request, env, cors) {
+  if (!adminOk(request, env)) return json({ error: "forbidden" }, 403, cors);
+  const r = await env.DB.prepare(
+    `SELECT s.id, s.name, s.email, s.product,
+            COUNT(e.id) AS sets,
+            COALESCE(SUM(e.items_count), 0) AS q,
+            COALESCE(SUM(e.correct_count), 0) AS c,
+            MAX(e.created_at) AS last_at
+     FROM students s LEFT JOIN english_attempts e ON e.student_id = s.id
+     WHERE s.status = 'active' AND s.product IN ('trial','elite','legend')
+     GROUP BY s.id ORDER BY last_at DESC`
+  ).all();
+  const list = (r.results || []).map(s => ({
+    id: s.id, name: s.name, email: s.email, product: s.product,
+    sets: s.sets, overallPct: s.q ? Math.round(s.c / s.q * 100) : 0, lastAt: s.last_at
+  }));
+  return json({ students: list }, 200, cors);
+}
+
+// Admin: one student's English detail (?id=): recent sets, per-theme accuracy, latest
+// weekly admin report.
+async function adminEngStudent(request, env, cors, url) {
+  if (!adminOk(request, env)) return json({ error: "forbidden" }, 403, cors);
+  const id = parseInt(url.searchParams.get("id"), 10);
+  if (!id) return json({ error: "bad_id" }, 400, cors);
+  const s = await env.DB.prepare("SELECT id, name, email, product FROM students WHERE id = ?").bind(id).first();
+  if (!s) return json({ error: "not_found" }, 404, cors);
+  const att = await env.DB.prepare(
+    "SELECT week_index, theme, created_at, items_count, attempted_count, correct_count FROM english_attempts WHERE student_id = ? ORDER BY created_at DESC LIMIT 30"
+  ).bind(id).all();
+  const prof = await env.DB.prepare(
+    "SELECT topic, seen_count, correct_count FROM english_topic_profile WHERE student_id = ?"
+  ).bind(id).all();
+  const topics = (prof.results || []).map(p => ({ topic: p.topic, label: engThemeLabel(p.topic), seen: p.seen_count, pct: p.seen_count ? Math.round(p.correct_count / p.seen_count * 100) : 0 })).sort((a, b) => a.pct - b.pct);
+  const wk = await env.DB.prepare(
+    "SELECT week_start, admin_report, created_at FROM english_weekly_reports WHERE student_id = ? ORDER BY week_start DESC LIMIT 1"
+  ).bind(id).first();
+  const weekly = wk ? { weekStart: wk.week_start, report: safeObj(wk.admin_report), createdAt: wk.created_at } : null;
+  return json({ student: s, sessions: att.results || [], topics, weekly }, 200, cors);
 }
 
 // Admin: manually (re)generate last week's report — for one student (?id=) or all

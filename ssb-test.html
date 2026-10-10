@@ -27,9 +27,13 @@
   .tr-bar span{display:block;height:100%;background:#c9a24b;width:100%;transition:width 1s linear}
   .tr-bar.low span{background:#b23b2e}
   .tr-kind{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#9a7a23;margin-bottom:6px}
-  .tr-stim{font-family:var(--serif,Georgia),serif;color:#0f2340;line-height:1.35}
+  .tr-stim{font-family:"Times New Roman",Times,Georgia,serif;color:#0f2340;line-height:1.35}
   .tr-stim.word{font-size:2.3rem;font-weight:700}
   .tr-stim.sit{font-size:1.2rem}
+  .tr-stim.self,.tr-stim.story,.tr-stim.plan{font-size:1.1rem}
+  .tr-img{display:block;max-width:100%;max-height:420px;margin:6px auto 4px;border-radius:12px;border:1px solid #d9e0ea}
+  .tr-title{font-family:"Times New Roman",Times,Georgia,serif;font-size:1.2rem;color:#0f2340;font-weight:700;margin-bottom:4px}
+  .tr-gmeta{font-size:.74rem;color:#9a7a23;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
   .tr-input,.tr-area{width:100%;box-sizing:border-box;margin-top:16px;border:1px solid #cdd6e3;border-radius:10px;padding:12px 14px;font-size:1.05rem;font-family:inherit}
   .tr-area{min-height:120px;resize:vertical}
   .tr-input:focus,.tr-area:focus{outline:none;border-color:#0f2340}
@@ -70,12 +74,13 @@
 (function(){
   if (typeof requireLogin === "function" && !requireLogin()) return;
 
-  var WAT_SECONDS = 15, SRT_SECONDS = 40;
   var stage = document.getElementById("stage"), phaseEl = document.getElementById("phase");
   var DAY = null, FOCUS = [], QUEUE = [], results = [];
   var cur = null; // {mode, items:[], idx, responses:[], timer, remaining, startTs}
 
   function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+  function fmtT(s){ s=Math.max(0,s|0); if(s>=100){ var m=Math.floor(s/60), r=s%60; return m+":"+(r<10?"0":"")+r; } return s+"s"; }
+  function placeholderFor(kind){ return kind==="self" ? "Write an honest, specific answer." : kind==="story" ? "Write your story: who they are, what they are thinking or feeling, and how it ends." : kind==="plan" ? "Write your plan: priorities, who does what, and timings." : "Write what he does next…"; }
 
   // ---- load the day's set ----
   (async function init(){
@@ -87,11 +92,13 @@
     FOCUS = Array.isArray(d.focus_olqs) ? d.focus_olqs : [];
     var items = d.items || {};
     QUEUE = [];
-    if (items.WAT && items.WAT.length) QUEUE.push({ mode:"WAT", label:"Word Association", seconds:WAT_SECONDS, kind:"word",
-      items: items.WAT.map(function(w){ return { n:0, prompt:w.word, tag:w.type }; }) });
-    if (items.SRT && items.SRT.length) QUEUE.push({ mode:"SRT", label:"Situation Reaction", seconds:SRT_SECONDS, kind:"sit",
-      items: items.SRT.map(function(s){ return { n:0, prompt:s.situation, tag:s.tag }; }) });
-    // TAT/SDT (weekly/fortnightly) are added to the portal trainer in a later pass.
+    function addQ(mode, label, seconds, kind, arr){ if (arr && arr.length) QUEUE.push({ mode:mode, label:label, seconds:seconds, kind:kind, items:arr }); }
+    addQ("WAT", "Word Association", 15, "word", (items.WAT||[]).map(function(w){ return { n:0, prompt:w.word, tag:w.type }; }));
+    addQ("SRT", "Situation Reaction", 40, "sit", (items.SRT||[]).map(function(s){ return { n:0, prompt:s.situation, tag:s.tag }; }));
+    addQ("SDT", "Self Description", 180, "self", (items.SDT||[]).map(function(s){ return { n:0, prompt:s.prompt }; }));
+    addQ("TAT", "Thematic Apperception", 240, "story", (items.TAT||[]).map(function(t){ return { n:0, prompt:"Write a story about the picture.", image_url:t.image_url }; }));
+    addQ("PPDT", "Picture Perception", 240, "story", (items.PPDT||[]).map(function(p){ return { n:0, prompt:"Study the picture, note the characters, then write a story.", image_url:p.image_url }; }));
+    addQ("GPE", "Group Planning", 300, "plan", (items.GPE||[]).map(function(g){ return { n:0, prompt:g.scenario, title:g.title, tag:g.tag, deadline:g.deadline }; }));
     if (!QUEUE.length){ showInfo("No challenge items are available today. Please check back tomorrow."); return; }
     renderIntro();
   })();
@@ -101,7 +108,7 @@
 
   function renderIntro(){
     phaseEl.textContent = DAY ? ("Day " + DAY) : "Today's challenge";
-    var lines = QUEUE.map(function(q){ return '<li><b>'+q.items.length+' '+esc(q.label)+'</b> — '+q.seconds+' seconds each</li>'; }).join("");
+    var lines = QUEUE.map(function(q){ return '<li><b>'+q.items.length+' '+esc(q.label)+'</b> — '+fmtT(q.seconds)+' each</li>'; }).join("");
     stage.innerHTML =
       '<div class="tr-card">'+
       '<div class="tr-kind">Structured practice</div>'+
@@ -124,23 +131,37 @@
   }
 
   function showItem(){
-    var q = cur, it = q.items[q.idx];
-    var isWord = q.kind === "word";
+    var q = cur, it = q.items[q.idx], kind = q.kind;
+    var stim = "";
+    if (kind === "word") {
+      stim = '<div class="tr-kind">Word</div><div class="tr-stim word">'+esc(it.prompt)+'</div>';
+    } else if (kind === "sit") {
+      stim = '<div class="tr-kind">Situation</div><div class="tr-stim sit">'+esc(it.prompt)+'</div>';
+    } else if (kind === "self") {
+      stim = '<div class="tr-kind">Self-description</div><div class="tr-stim self">'+esc(it.prompt)+'</div>';
+    } else if (kind === "story") {
+      stim = '<div class="tr-kind">'+(q.mode === "PPDT" ? 'Picture perception' : 'Picture story')+'</div>'+
+        (it.image_url ? '<img class="tr-img" src="'+esc(it.image_url)+'" alt="Picture to study">' : '')+
+        '<div class="tr-stim story">'+esc(it.prompt)+'</div>';
+    } else if (kind === "plan") {
+      stim = '<div class="tr-gmeta">Group planning'+(it.deadline ? (' · deadline '+esc(it.deadline)) : '')+'</div>'+
+        (it.title ? '<div class="tr-title">'+esc(it.title)+'</div>' : '')+
+        '<div class="tr-stim plan">'+esc(it.prompt)+'</div>';
+    }
+    var inputHtml = (kind === "word")
+      ? '<input class="tr-input" id="inp" autocomplete="off" placeholder="Write your sentence and press Enter">'
+      : '<textarea class="tr-area" id="inp" placeholder="'+esc(placeholderFor(kind))+'"></textarea>';
     stage.innerHTML =
       '<div class="tr-card">'+
       '<div class="tr-meta"><span class="tr-count">'+esc(q.label)+' · '+(q.idx+1)+' of '+q.items.length+'</span>'+
-      '<span class="tr-timer" id="timer">'+q.seconds+'s</span></div>'+
+      '<span class="tr-timer" id="timer">'+fmtT(q.seconds)+'</span></div>'+
       '<div class="tr-bar" id="bar"><span id="barfill"></span></div>'+
-      '<div class="tr-kind">'+(isWord?'Word':'Situation')+'</div>'+
-      '<div class="tr-stim '+(isWord?'word':'sit')+'">'+esc(it.prompt)+'</div>'+
-      (isWord
-        ? '<input class="tr-input" id="inp" autocomplete="off" placeholder="Write your sentence and press Enter">'
-        : '<textarea class="tr-area" id="inp" placeholder="Write what he does next…"></textarea>')+
+      stim + inputHtml +
       '<div class="tr-actions"><button class="btn primary" id="next">'+(q.idx>=q.items.length-1?'Finish':'Next')+'</button></div>'+
       '</div>';
     var inp = document.getElementById("inp");
     inp.focus();
-    if (isWord) inp.addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); commit(); } });
+    if (kind === "word") inp.addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); commit(); } });
     document.getElementById("next").addEventListener("click", commit);
     startTimer(q.seconds);
   }
@@ -152,7 +173,7 @@
     clearInterval(cur.timer);
     cur.timer = setInterval(function(){
       cur.remaining--;
-      if (t) t.textContent = Math.max(0,cur.remaining) + "s";
+      if (t) t.textContent = fmtT(Math.max(0,cur.remaining));
       if (fill) fill.style.width = Math.max(0, (cur.remaining/secs)*100) + "%";
       if (bar) bar.classList.toggle("low", cur.remaining <= Math.ceil(secs*0.25));
       if (cur.remaining <= 0) commit(true);
@@ -165,7 +186,7 @@
     var text = inp ? inp.value.trim() : "";
     var it = cur.items[cur.idx];
     var used = Math.min(cur.seconds, Math.round((Date.now()-cur.startTs)/1000));
-    cur.responses.push({ n: cur.idx+1, prompt: it.prompt, tag: it.tag, response: text, seconds: used });
+    cur.responses.push({ n: cur.idx+1, prompt: it.prompt, title: it.title, tag: it.tag, response: text, seconds: used });
     cur.idx++;
     if (cur.idx < cur.items.length) showItem(); else submitMode();
   }
@@ -187,7 +208,7 @@
       '<div class="tr-card">'+
       '<div class="tr-kind">'+esc(done)+' done</div>'+
       '<h1 class="tr-h">Nice work.</h1>'+
-      '<p class="tr-sub">Next: '+cnt+' '+esc(nextLabel)+' — '+secs+' seconds each. Your feedback for everything appears at the end.</p>'+
+      '<p class="tr-sub">Next: '+cnt+' '+esc(nextLabel)+' — '+fmtT(secs)+' each. Your feedback for everything appears at the end.</p>'+
       '<div class="tr-actions"><button class="btn primary" id="cont">Continue</button></div>'+
       '</div>';
     document.getElementById("cont").addEventListener("click", function(){ startMode(nextQi); });

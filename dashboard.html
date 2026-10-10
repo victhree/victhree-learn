@@ -44,6 +44,7 @@
     <a class="sn-link" data-route="notes" href="#notes"><span class="sn-ic"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 16h4"/></svg></span>Notes</a>
     <a class="sn-link" data-route="current-affairs" href="#current-affairs"><span class="sn-ic"><svg viewBox="0 0 24 24"><path d="M4 5h13v14H4z"/><path d="M17 8h3v9a2 2 0 0 1-2 2h-1z"/><path d="M7 8h7M7 11h7M7 14h5"/></svg></span>Current Affairs</a>
     <a class="sn-link" data-route="ssb" href="#ssb"><span class="sn-ic"><svg viewBox="0 0 24 24"><path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7z"/><path d="M9 12l2 2 4-4"/></svg></span>SSB Progress</a>
+    <a class="sn-link" data-route="english" href="#english"><span class="sn-ic"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 12h8M8 15h5"/></svg></span>English Progress</a>
   </nav>
   <div class="sn-tools">
     <div class="sn-cap">More from VicThree</div>
@@ -250,6 +251,15 @@
   </section>
 
   <!-- ===== SSB PROGRESS ===== -->
+  <section id="v-eng" class="hide">
+    <a class="back-link" id="back-eng" href="#">&larr; Home</a>
+    <div class="ssb-head">
+      <div class="section-title" style="margin:0;border:0;padding:0">Your English progress</div>
+      <a class="btn primary" id="engPractice" href="eng-test.html">Start today&rsquo;s set &rarr;</a>
+    </div>
+    <div id="eng-mentored" class="ssb-board hide"></div>
+  </section>
+
   <section id="v-ssb" class="hide">
     <a class="back-link" id="back-ssb" href="#">&larr; Home</a>
     <div class="ssb-head">
@@ -576,7 +586,7 @@
   }
 
   // View switching (single page, no reloads).
-  var VIEWS = ["v-home","v-lectures","v-geography","v-empty","v-notes","v-notesgeo","v-ca","v-ssb"];
+  var VIEWS = ["v-home","v-lectures","v-geography","v-empty","v-notes","v-notesgeo","v-ca","v-ssb","v-eng"];
   function showView(id){
     VIEWS.forEach(function(v){ document.getElementById(v).classList.toggle("hide", v!==id); });
     window.scrollTo(0,0);
@@ -584,18 +594,19 @@
 
   // Drive folder navigation through the URL hash so the browser's back/forward
   // buttons (and the in-page back links) work normally.
-  var ROUTES = { "":"v-home", "home":"v-home", "lectures":"v-lectures", "geography":"v-geography", "notes":"v-notes", "notes-geography":"v-notesgeo", "current-affairs":"v-ca", "ssb":"v-ssb" };
+  var ROUTES = { "":"v-home", "home":"v-home", "lectures":"v-lectures", "geography":"v-geography", "notes":"v-notes", "notes-geography":"v-notesgeo", "current-affairs":"v-ca", "ssb":"v-ssb", "english":"v-eng" };
   function renderRoute(){
     var h = (location.hash || "").replace(/^#/, "");
     var view = ROUTES[h] || "v-home";
     if (view === "v-notesgeo") loadNotes();
     if (view === "v-ca") loadCA();
     if (view === "v-ssb") loadSsb();
+    if (view === "v-eng") loadEng();
     showView(view);
     setActiveNav(view);
   }
   function setActiveNav(view){
-    var map = { "v-home":"home", "v-lectures":"lectures", "v-geography":"lectures", "v-notes":"notes", "v-notesgeo":"notes", "v-ca":"current-affairs", "v-ssb":"ssb" };
+    var map = { "v-home":"home", "v-lectures":"lectures", "v-geography":"lectures", "v-notes":"notes", "v-notesgeo":"notes", "v-ca":"current-affairs", "v-ssb":"ssb", "v-eng":"english" };
     var route = map[view] || "home";
     Array.prototype.forEach.call(document.querySelectorAll(".sn-link"), function(a){
       a.classList.toggle("active", a.getAttribute("data-route") === route);
@@ -611,6 +622,7 @@
   on("nav-notes-geo", function(){ go("notes-geography"); });
   on("nav-currentaffairs", function(){ go("current-affairs"); });
   on("nav-ssb", function(){ go("ssb"); });
+  on("nav-english", function(){ go("english"); });
   (function(){ var b = document.getElementById("ssbPractice"); if (b && window.SSB_URL) b.href = ssbHandoff(window.SSB_URL); })();
   on("back-home", function(){ history.back(); });
   on("back-lectures", function(){ history.back(); });
@@ -619,6 +631,7 @@
   on("back-notesgeo", function(){ history.back(); });
   on("back-ca", function(){ history.back(); });
   on("back-ssb", function(){ history.back(); });
+  on("back-eng", function(){ history.back(); });
 
   // Notes folder: list every topic's notes; a note opens once it has unlocked (6 PM the evening before).
   var notesLoaded = false;
@@ -868,6 +881,96 @@
     add("polygon", { points: (pad + "," + (h - pad)) + " " + pts.join(" ") + " " + ((w - pad) + "," + (h - pad)), fill: "rgba(227,185,78,.15)", stroke: "none" });
     add("polyline", { points: pts.join(" "), fill: "none", stroke: "#e3b94e", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" });
     var last = pts[pts.length - 1].split(","); add("circle", { cx: last[0], cy: last[1], r: "3", fill: "#e3b94e" });
+  }
+
+  // Generic rotating ticker (one per element id), used by both boards.
+  function startSsbTickerEl(elId, items){
+    var el = document.getElementById(elId);
+    if (!el || !items || items.length < 2) return;
+    window._tickers = window._tickers || {};
+    if (window._tickers[elId]) clearInterval(window._tickers[elId]);
+    var i = 0;
+    window._tickers[elId] = setInterval(function(){
+      el.style.opacity = "0";
+      setTimeout(function(){ i = (i + 1) % items.length; el.textContent = items[i]; el.style.opacity = "1"; }, 400);
+    }, 3600);
+  }
+
+  var engLoaded = false;
+  async function loadEng(){
+    if (engLoaded) return;
+    if (!window.PRODUCT) { var meR = await api("/api/me"); window.PRODUCT = (meR && meR.data && meR.data.product) || ""; }
+    var host = document.getElementById("eng-mentored");
+    host.classList.remove("hide");
+    if (["trial","elite","legend"].indexOf(window.PRODUCT) === -1) {
+      engLoaded = true;
+      host.innerHTML = '<div class="ssb-panel"><p class="ssb-note">The daily English challenge is part of the trial and the full course.</p></div>';
+      return;
+    }
+    engLoaded = true;
+    host.innerHTML = '<div class="ssb-panel"><p class="ssb-note">Loading your English dashboard...</p></div>';
+    var dash = await api("/api/eng/dashboard");
+    var D = (dash && dash.ok && dash.data) ? dash.data : {};
+    var html = "";
+
+    if (D.statusLine) html += '<div class="ssb-panel"><div class="ssb-status">' + esc(D.statusLine) + '</div></div>';
+
+    html += '<div class="ssb-panel"><div class="ssb-k" style="display:flex;justify-content:space-between;align-items:center;gap:10px">' +
+      '<span>This week: ' + esc(D.currentTheme || "") + (D.currentWeek ? ' (Week ' + D.currentWeek + ')' : '') + '</span>' +
+      (D.streak ? '<span class="ssb-streak">' + D.streak + '-day streak</span>' : '') + '</div>' +
+      '<a class="btn primary" style="margin-top:10px" href="eng-test.html">Start today' + AP + 's English set &rarr;</a></div>';
+
+    var mv = D.movements || [], acc = D.accuracy || [];
+    if (mv.length || acc.length >= 2) {
+      html += '<div class="ssb-panel"><div class="ssb-k">Your movement</div>';
+      if (mv.length) html += '<div class="ssb-ticker"><span class="dot"></span><span class="txt" id="eng-tick">' + esc(mv[0]) + '</span></div>';
+      if (acc.length >= 2) html += '<div class="ssb-k" style="margin:14px 0 4px">Accuracy over time</div>' +
+        '<svg id="eng-acc" width="100%" height="92" viewBox="0 0 320 92" role="img" aria-label="Accuracy over time"></svg>';
+      html += '</div>';
+    }
+
+    if (D.topics && D.topics.length) {
+      html += '<div class="ssb-panel"><div class="ssb-k">Accuracy by topic</div>';
+      D.topics.slice(0, 10).forEach(function(t){
+        html += '<div style="margin:9px 0"><div style="display:flex;justify-content:space-between;font-size:13px">' +
+          '<span>' + esc(t.label) + '</span><span class="ssb-k" style="margin:0">' + t.pct + '%</span></div>' +
+          '<div style="height:8px;background:rgba(150,170,200,.16);border-radius:6px;overflow:hidden;margin-top:3px">' +
+          '<div style="height:100%;width:' + t.pct + '%;background:#e3b94e"></div></div></div>';
+      });
+      html += '</div>';
+    }
+
+    if (D.examples && D.examples.length) {
+      html += '<div class="ssb-panel"><div class="ssb-k">Questions to review</div>' +
+        '<p class="ssb-note" style="margin:0 0 6px">A few you missed, with the correct answer.</p>';
+      D.examples.forEach(function(ex){
+        html += '<div class="ssb-sub"><div style="font-weight:700">' + esc(ex.question) + '</div>' +
+          '<div class="muted" style="font-style:italic;margin-top:4px">You chose: ' + esc(ex.your) + '</div>' +
+          '<div style="font-size:13.5px;margin-top:4px"><strong>Answer:</strong> ' + esc(ex.correct) + '</div>' +
+          (ex.explanation ? '<div class="muted" style="font-size:13px;margin-top:6px">' + esc(ex.explanation) + '</div>' : '') + '</div>';
+      });
+      html += '</div>';
+    }
+
+    var wk = (D.weekly && D.weekly.report) ? D.weekly.report : null;
+    html += '<div class="ssb-panel"><div class="ssb-k">Your weekly report</div>';
+    if (wk && wk.headline) html += '<p class="ssb-note">' + esc(wk.headline) + '</p>';
+    if (wk && wk.focus && wk.focus.length) {
+      html += '<div style="font-weight:700;margin:12px 0 2px">What to focus on this week</div>';
+      wk.focus.forEach(function(f){
+        html += '<div class="ssb-sub"><div style="font-weight:600">' + esc(f.pattern || "") + '</div>' +
+          (f.why ? '<div class="muted" style="font-size:13px;margin-top:3px">' + esc(f.why) + '</div>' : '') +
+          (f.action ? '<div style="font-size:13.5px;margin-top:6px"><strong>This week:</strong> ' + esc(f.action) + '</div>' : '') + '</div>';
+      });
+    } else {
+      html += '<p class="ssb-note">Your first weekly report appears after a few days of practice.</p>';
+    }
+    html += '</div>';
+
+    host.innerHTML = html;
+    var asvg = document.getElementById("eng-acc");
+    if (asvg && acc.length >= 2) drawSsbLine(asvg, acc);
+    startSsbTickerEl("eng-tick", mv);
   }
 
   async function loadSsb(){

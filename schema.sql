@@ -180,3 +180,67 @@ CREATE TABLE IF NOT EXISTS ssb_weekly_reports (
   created_at     INTEGER NOT NULL,
   UNIQUE(student_id, week_start)
 );
+
+-- =============================================================================
+-- ENGLISH DAILY CHALLENGE (trial / elite / legend; hero excluded) — mirrors the
+-- SSB tracking layer, but scoring is deterministic (MCQ right/wrong), so there is
+-- no AI engine and the weekly report is computed from these rows on the server.
+-- One row per completed daily English set, plus per-question rows, a rolling
+-- per-theme accuracy tally, and the weekend report. Safe to re-run (IF NOT EXISTS).
+-- =============================================================================
+
+-- One row per completed daily English challenge (the session).
+CREATE TABLE IF NOT EXISTS english_attempts (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  student_id      INTEGER NOT NULL,
+  week_index      INTEGER NOT NULL,          -- 1..13 (from the rotation)
+  theme           TEXT,                      -- the week's English theme label
+  created_at      INTEGER NOT NULL,          -- ms timestamp
+  items_count     INTEGER NOT NULL DEFAULT 0,
+  attempted_count INTEGER NOT NULL DEFAULT 0,
+  correct_count   INTEGER NOT NULL DEFAULT 0,
+  seconds_used    INTEGER NOT NULL DEFAULT 0,
+  metrics         TEXT                       -- JSON: per-theme/subtopic tallies for the report
+);
+CREATE INDEX IF NOT EXISTS idx_english_attempts_student ON english_attempts(student_id, created_at);
+
+-- One row per individual question answered within a daily set.
+CREATE TABLE IF NOT EXISTS english_items (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id    INTEGER NOT NULL,            -- english_attempts.id
+  student_id    INTEGER NOT NULL,
+  theme         TEXT,
+  source        TEXT,                        -- which bank/file the question came from
+  n             INTEGER,                     -- item index within the set
+  question      TEXT,                        -- the stem (normalised)
+  options       TEXT,                        -- JSON array of option strings
+  chosen_index  INTEGER,                     -- what the student picked (0-based; NULL = skipped)
+  correct_index INTEGER,                     -- the right option (0-based)
+  is_correct    INTEGER NOT NULL DEFAULT 0,  -- 0/1
+  explanation   TEXT,
+  created_at    INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_english_items_session ON english_items(session_id);
+CREATE INDEX IF NOT EXISTS idx_english_items_student ON english_items(student_id, created_at);
+
+-- Rolling picture: for each student, accuracy per theme/subtopic over time.
+CREATE TABLE IF NOT EXISTS english_topic_profile (
+  student_id    INTEGER NOT NULL,
+  topic         TEXT NOT NULL,               -- theme or subtopic key
+  seen_count    INTEGER NOT NULL DEFAULT 0,
+  correct_count INTEGER NOT NULL DEFAULT 0,
+  last_seen_at  INTEGER NOT NULL,
+  PRIMARY KEY (student_id, topic)
+);
+
+-- Weekend report: two JSON outputs computed on the server (no AI) — a simple
+-- student-facing report and a detailed admin report. One per week.
+CREATE TABLE IF NOT EXISTS english_weekly_reports (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  student_id     INTEGER NOT NULL,
+  week_start     TEXT NOT NULL,              -- 'YYYY-MM-DD' (IST, Monday)
+  student_report TEXT,                       -- JSON: simple, plain-language
+  admin_report   TEXT,                       -- JSON: full breakdown by theme/subtopic
+  created_at     INTEGER NOT NULL,
+  UNIQUE(student_id, week_start)
+);

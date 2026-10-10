@@ -159,10 +159,13 @@ CREATE TABLE IF NOT EXISTS ssb_items (
   student_id  INTEGER NOT NULL,
   mode        TEXT,
   n           INTEGER,                         -- item index within the session
+  prompt      TEXT,                            -- the stimulus (word / situation), for "why" examples
   response    TEXT,                            -- the student's answer
   analysis    TEXT,                            -- JSON: engine per_item entry
   created_at  INTEGER NOT NULL
 );
+-- Migration for an existing database (run once; harmless if it already exists):
+--   ALTER TABLE ssb_items ADD COLUMN prompt TEXT;
 CREATE INDEX IF NOT EXISTS idx_ssb_items_session ON ssb_items(session_id);
 CREATE INDEX IF NOT EXISTS idx_ssb_items_student ON ssb_items(student_id, created_at);
 

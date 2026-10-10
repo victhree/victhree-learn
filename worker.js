@@ -554,9 +554,10 @@ async function ssbAttempt(env, cors, user, url, request) {
   perItem.forEach((pi, i) => {
     const n = clampInt((pi && pi.n != null) ? pi.n : (i + 1), 0, 1000);
     const resp = String((pi && pi.response) || "").slice(0, 2000);
+    const prm = (pi && pi.prompt) ? String(pi.prompt).slice(0, 500) : null;
     stmts.push(env.DB.prepare(
-      "INSERT INTO ssb_items (session_id, student_id, mode, n, response, analysis, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
-    ).bind(sessionId, user.id, mode, n, resp, JSON.stringify(pi || {}), now));
+      "INSERT INTO ssb_items (session_id, student_id, mode, n, prompt, response, analysis, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    ).bind(sessionId, user.id, mode, n, prm, resp, JSON.stringify(pi || {}), now));
   });
 
   reflected.forEach(k => stmts.push(env.DB.prepare(
@@ -853,9 +854,11 @@ async function storeCourseSession(env, user, mode, data, items) {
   perItem.forEach((pi, i) => {
     const n = clampInt((pi && pi.n != null) ? pi.n : (i + 1), 0, 1000);
     const resp = String((pi && pi.response) || "").slice(0, 2000);
+    const src = items[i] || {};
+    const prm = (src.prompt || (pi && pi.prompt)) ? String(src.prompt || pi.prompt).slice(0, 500) : null;
     stmts.push(env.DB.prepare(
-      "INSERT INTO ssb_items (session_id, student_id, mode, n, response, analysis, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
-    ).bind(sessionId, user.id, mode, n, resp, JSON.stringify(pi || {}), now));
+      "INSERT INTO ssb_items (session_id, student_id, mode, n, prompt, response, analysis, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    ).bind(sessionId, user.id, mode, n, prm, resp, JSON.stringify(pi || {}), now));
   });
   reflected.forEach(k => stmts.push(env.DB.prepare(
     `INSERT INTO ssb_olq_profile (student_id, olq, reflected_count, work_count, last_seen_at)
@@ -983,8 +986,8 @@ async function ssbDashboard(env, cors, user) {
   const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 
   const att = await env.DB.prepare(
-    `SELECT mode, created_at, items_count, attempted_count, metrics
-     FROM ssb_attempts WHERE student_id = ? ORDER BY created_at DESC LIMIT 120`
+    `SELECT mode, created_at, items_count, attempted_count, reflected_keys, work_keys, metrics
+     FROM ssb_attempts WHERE student_id = ? ORDER BY created_at DESC LIMIT 200`
   ).bind(user.id).all();
   const rows = att.results || [];
   const total = rows.length;
@@ -1000,20 +1003,14 @@ async function ssbDashboard(env, cors, user) {
   const radar = SSB_RADAR.map(x => ({ olq: x[0], label: x[1], value: olqScore(x[0]) }));
   const labelOf = k => { const f = SSB_RADAR.find(x => x[0] === k); return f ? f[1].toLowerCase() : k.replace(/_/g, " "); };
 
-  // This week vs last week -> plain "what's improving" sentences (no graphics).
+  // This week vs last week metric aggregates (used for status + movement ticker).
   const weekMs = 7 * DAY_MS;
   const thisWeek = rows.filter(a => a.created_at >= now - weekMs);
   const prevWeek = rows.filter(a => a.created_at >= now - 2 * weekMs && a.created_at < now - weekMs);
   const agg = (list, pick) => list.reduce((acc, a) => { const m = safeObj(a.metrics); const v = m ? pick(m) : null; return (v == null || isNaN(v)) ? acc : { s: acc.s + Number(v), n: acc.n + 1 }; }, { s: 0, n: 0 });
-  const improving = [];
   const tTry = agg(thisWeek, m => m.try_count), pTry = agg(prevWeek, m => m.try_count);
-  if (tTry.n && pTry.n && tTry.s !== pTry.s) improving.push(tTry.s < pTry.s
-    ? "Your use of “try” dropped from " + pTry.s + " to " + tTry.s + ". Keep opening with a firm action."
-    : "Your use of “try” rose from " + pTry.s + " to " + tTry.s + ". Aim to open with a decided action word.");
   const tSrt = agg(thisWeek, m => m.srt_completion_rate), pSrt = agg(prevWeek, m => m.srt_completion_rate);
-  if (tSrt.n && pSrt.n) { const a = Math.round(pSrt.s / pSrt.n * 100), b = Math.round(tSrt.s / tSrt.n * 100); if (b !== a) improving.push(b > a
-    ? "You finished more situations (" + a + "% to " + b + "%). Keep adding the outcome to each one."
-    : "You finished fewer situations (" + a + "% to " + b + "%). Give each one a clear ending."); }
+  const improvingCount = (tTry.n && pTry.n && tTry.s < pTry.s ? 1 : 0) + (tSrt.n && pSrt.n && (tSrt.s / tSrt.n) > (pSrt.s / pSrt.n) ? 1 : 0);
 
   // The qualities that matter most, as one plain line.
   const strengths = prrows.filter(p => (p.reflected_count || 0) > (p.work_count || 0))
@@ -1025,6 +1022,31 @@ async function ssbDashboard(env, cors, user) {
   else if (sParts.length === 1) qualitiesNote = cap(sParts[0]) + " is a real strength.";
   if (weak.length) qualitiesNote += (qualitiesNote ? " " : "") + cap(labelOf(weak[0])) + " needs the most attention.";
 
+  // Rotating movement highlights: OLQ point changes (recent 14 days vs the prior 14)
+  // plus a metric move or two, with evergreen strengths so the ticker is never empty.
+  const wcounts = pred => { const c = {}; rows.forEach(a => { if (!pred(a)) return; safeArr(a.reflected_keys).forEach(k => { (c[k] = c[k] || { r: 0, w: 0 }).r++; }); safeArr(a.work_keys).forEach(k => { (c[k] = c[k] || { r: 0, w: 0 }).w++; }); }); return c; };
+  const twoW = 14 * DAY_MS;
+  const recentC = wcounts(a => a.created_at >= now - twoW);
+  const priorC = wcounts(a => a.created_at >= now - 2 * twoW && a.created_at < now - twoW);
+  const scoreC = c => { if (!c) return null; const r = c.r || 0, w = c.w || 0; return (r + w === 0) ? null : Math.max(1, Math.min(10, Math.round(10 * (r + 0.5) / (r + w + 1)))); };
+  const movements = [];
+  SSB_RADAR.forEach(x => { const sN = scoreC(recentC[x[0]]), sP = scoreC(priorC[x[0]]); if (sN != null && sP != null && sN !== sP) { const dd = sN - sP; movements.push(x[1] + (dd > 0 ? " up " : " down ") + Math.abs(dd) + " point" + (Math.abs(dd) > 1 ? "s" : "")); } });
+  if (tSrt.n) movements.push("Situations completed now " + Math.round(tSrt.s / tSrt.n * 100) + "%");
+  if (tTry.n && pTry.n && tTry.s < pTry.s) movements.push("Hesitant openings down from " + pTry.s + " to " + tTry.s);
+  strengths.slice(0, 2).forEach(p => movements.push(cap(labelOf(p.olq)) + " is a current strength"));
+  const seenM = {}, movementsOut = [];
+  movements.forEach(m => { if (!seenM[m]) { seenM[m] = 1; movementsOut.push(m); } });
+
+  // Situations-completed series over time (for the one graph).
+  const situations = rows.filter(a => a.mode === "SRT").map(a => { const m = safeObj(a.metrics); return (m && m.srt_completion_rate != null) ? { at: a.created_at, v: Math.round(m.srt_completion_rate * 100) } : null; }).filter(Boolean).reverse().slice(-10);
+
+  // "What your responses highlight": a few of the student's own answers + our note.
+  const exq = await env.DB.prepare(
+    "SELECT prompt, response, analysis FROM ssb_items WHERE student_id = ? AND response IS NOT NULL AND response != '' ORDER BY created_at DESC LIMIT 40"
+  ).bind(user.id).all();
+  const examples = [];
+  (exq.results || []).forEach(r => { if (examples.length >= 3) return; const a = safeObj(r.analysis) || {}; const comment = a.comment || a.suggestion || ""; if (!comment) return; examples.push({ prompt: r.prompt || "", response: r.response, comment: comment }); });
+
   // Streak: consecutive IST days with at least one session, ending today or yesterday.
   const days = {}; rows.forEach(a => { days[istDateStr(a.created_at)] = true; });
   const key = dt => dt.toISOString().slice(0, 10);
@@ -1032,10 +1054,9 @@ async function ssbDashboard(env, cors, user) {
   if (!days[key(d)]) d = new Date(d.getTime() - DAY_MS);
   while (days[key(d)]) { streak++; d = new Date(d.getTime() - DAY_MS); }
 
-  // Status line + "where you're heading" forecast (plain text).
   const statusLine = !total
     ? "Your SSB practice starts here. Do today’s challenge to begin building your picture."
-    : (improving.length ? "You’re building well. Sharper and more decisive this week."
+    : (improvingCount ? "You’re building well. Sharper and more decisive this week."
       : "Steady progress. Keep the daily challenge going to see it move.");
   const forecast = total ? "Keep this pace and your weaker areas should strengthen over the next few weeks." : "";
 
@@ -1044,7 +1065,7 @@ async function ssbDashboard(env, cors, user) {
   ).bind(user.id).first();
   const weekly = wk ? { weekStart: wk.week_start, report: safeObj(wk.student_report), createdAt: wk.created_at } : null;
 
-  return json({ tier: user.product, totalSessions: total, statusLine, radar, improving, qualitiesNote, forecast, streak, weekly, recent: sessions.slice(0, 8) }, 200, cors);
+  return json({ tier: user.product, totalSessions: total, statusLine, radar, qualitiesNote, movements: movementsOut.slice(0, 6), situations, examples, forecast, streak, weekly, recent: sessions.slice(0, 8) }, 200, cors);
 }
 
 // Admin: manually (re)generate last week's report — for one student (?id=) or all

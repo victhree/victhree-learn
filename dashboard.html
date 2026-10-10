@@ -12,6 +12,26 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&display=swap">
 <link rel="stylesheet" href="assets/portal.css">
+<style>
+  /* SSB "performance console": a dark premium board (Option A look), scoped to the
+     SSB tab so the rest of the portal stays light. */
+  .ssb-board{background:#0b1220;border:1px solid #1b2740;border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:14px}
+  .ssb-board .ssb-panel{background:#121b2e;border:1px solid #22304a;border-radius:12px;color:#e8eef7;margin:0;padding:14px 16px}
+  .ssb-board .ssb-k{color:#8fa0bd;font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;font-weight:700}
+  .ssb-board .ssb-note{color:#aebbce}
+  .ssb-board .muted{color:#8fa0bd}
+  .ssb-board strong{color:#eef3fa}
+  .ssb-board a{color:#e3b94e}
+  .ssb-board .btn.primary{background:#e3b94e;color:#20160a;border-color:#e3b94e}
+  .ssb-board .btn.primary:hover{filter:brightness(1.06)}
+  .ssb-board .ssb-status{font-family:"Cinzel",Georgia,serif;font-size:1.2rem;color:#fff;line-height:1.35}
+  .ssb-board .ssb-streak{color:#e3b94e;font-weight:700}
+  .ssb-board .ssb-sub{margin-top:8px;padding:10px 12px;border:1px solid #2a3a56;border-radius:10px;background:#0f1930}
+  .ssb-board ul{color:#cdd8e6}
+  .ssb-board .ssb-ticker{min-height:24px;display:flex;align-items:center;gap:9px}
+  .ssb-board .ssb-ticker .dot{width:7px;height:7px;border-radius:50%;background:#57c08a;flex:none}
+  .ssb-board .ssb-ticker .txt{font-weight:700;color:#eef3fa;transition:opacity .4s}
+</style>
 </head>
 <body class="has-sidenav">
 
@@ -236,7 +256,7 @@
       <div class="section-title" style="margin:0;border:0;padding:0">Your SSB progress</div>
       <a class="btn primary" id="ssbPractice" href="#" target="_blank" rel="noopener">Practice SSB tests &rarr;</a>
     </div>
-    <div id="ssb-mentored" class="hide"></div>
+    <div id="ssb-mentored" class="ssb-board hide"></div>
     <div id="ssb-msg"></div>
     <div id="ssb-body" hidden>
       <div class="ssb-grid">
@@ -699,10 +719,12 @@
       host.appendChild(c);
     });
   }
-  // Mentored-only (Elite/Legend) tracked SSB dashboard: a kind status line, today's
-  // challenge + streak, the OLQ radar (own shape), a plain written weekly report,
-  // and a "where you're heading" section. Text-first; one chart; no em dashes.
+  // Tracked SSB dashboard (trial/elite/legend), dark "performance console" look:
+  // status line, today's challenge + streak, a rotating movement ticker + situations
+  // graph, the OLQ radar, "what your responses highlight", the weekly focus, and a
+  // "where you're heading" section. No em dashes.
   var ssbMentoredLoaded = false;
+  var AP = "’"; // apostrophe
   async function loadSsbMentored(){
     if (ssbMentoredLoaded) return;
     var P = window.PRODUCT;
@@ -710,65 +732,81 @@
     ssbMentoredLoaded = true;
     var host = document.getElementById("ssb-mentored");
     host.classList.remove("hide");
-    host.innerHTML = '<div class="muted" style="padding:6px 0">Loading your SSB dashboard…</div>';
+    host.innerHTML = '<div class="ssb-panel"><p class="ssb-note">Loading your SSB dashboard...</p></div>';
     var dash = await api("/api/ssb/dashboard");
     var ch = await api("/api/ssb/challenge/today");
     var D = (dash && dash.ok && dash.data) ? dash.data : {};
     var html = "";
 
     // 1. Status line.
-    if (D.statusLine) html += '<div class="ssb-panel"><div style="font-family:var(--serif,Georgia),serif;font-size:1.15rem;color:#0f2340;line-height:1.35">' + esc(D.statusLine) + '</div></div>';
+    if (D.statusLine) html += '<div class="ssb-panel"><div class="ssb-status">' + esc(D.statusLine) + '</div></div>';
 
     // 2. Today's challenge + streak.
     if (ch && ch.ok && ch.data) {
       var plan = ch.data.plan || {};
       html += '<div class="ssb-panel"><div class="ssb-k" style="display:flex;justify-content:space-between;align-items:center;gap:10px">' +
-        '<span>Today’s challenge' + (plan.dayIndex ? ' (Day ' + plan.dayIndex + ')' : '') + '</span>' +
-        (D.streak ? '<span style="color:#9a7a23;font-weight:700;text-transform:none;letter-spacing:0">' + D.streak + '-day streak</span>' : '') + '</div>';
+        '<span>Today' + AP + 's challenge' + (plan.dayIndex ? ' (Day ' + plan.dayIndex + ')' : '') + '</span>' +
+        (D.streak ? '<span class="ssb-streak">' + D.streak + '-day streak</span>' : '') + '</div>';
       if (!plan.available) {
         html += '<p class="ssb-note">Your structured challenge begins on ' + esc(ch.data.startDate || "") + '.</p>';
       } else {
         var parts = (plan.due || []).map(function(dd){ return dd.count + ' ' + ssbModeName(dd.mode); });
         html += '<p class="ssb-note">' + parts.join(', ') + '</p>' +
-          '<a class="btn primary" style="margin-top:10px" href="ssb-test.html">Start today’s practice →</a>';
+          '<a class="btn primary" style="margin-top:10px" href="ssb-test.html">Start today' + AP + 's practice →</a>';
       }
       html += '</div>';
     }
 
-    // 3. OLQ radar (own shape, no target line).
+    // 3. Movement: rotating highlight ticker + one situations-completed graph.
+    var mv = D.movements || [], sit = D.situations || [];
+    if (mv.length || sit.length >= 2) {
+      html += '<div class="ssb-panel"><div class="ssb-k">This week' + AP + 's movement</div>';
+      if (mv.length) html += '<div class="ssb-ticker"><span class="dot"></span><span class="txt" id="ssb-tick">' + esc(mv[0]) + '</span></div>';
+      if (sit.length >= 2) html += '<div class="ssb-k" style="margin:14px 0 4px">Situations completed over time</div>' +
+        '<svg id="ssb-sit" width="100%" height="92" viewBox="0 0 320 92" role="img" aria-label="Situations completed over time"></svg>';
+      html += '</div>';
+    }
+
+    // 4. OLQ radar (own shape, no target line).
     if (D.radar && D.radar.length) {
       html += '<div class="ssb-panel"><div class="ssb-k">Your officer-like qualities</div>' +
         '<svg id="ssb-radar" width="100%" height="230" viewBox="0 0 360 230" role="img" aria-label="Your qualities"></svg>' +
         (D.qualitiesNote ? '<p class="ssb-note" style="margin-top:4px">' + esc(D.qualitiesNote) + '</p>' : '') + '</div>';
     }
 
-    // 4. Weekly report: what's improving + what to focus on (all words).
-    var wk = (D.weekly && D.weekly.report) ? D.weekly.report : null;
-    var hasImp = D.improving && D.improving.length;
-    if (hasImp || wk) {
-      html += '<div class="ssb-panel"><div class="ssb-k">Your weekly report</div>';
-      if (wk && wk.headline) html += '<p class="ssb-note">' + esc(wk.headline) + '</p>';
-      if (hasImp) {
-        html += '<div style="font-weight:700;margin:12px 0 4px">What’s improving</div>' +
-          '<ul style="margin:0;padding-left:18px">' + D.improving.map(function(s){ return '<li style="margin:5px 0">' + esc(s) + '</li>'; }).join('') + '</ul>';
-      }
-      if (wk && wk.focus && wk.focus.length) {
-        html += '<div style="font-weight:700;margin:14px 0 4px">What to focus on this week</div>';
-        wk.focus.forEach(function(f){
-          html += '<div style="margin-top:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px">' +
-            '<div style="font-weight:600">' + esc(f.pattern || "") + '</div>' +
-            (f.why ? '<div class="muted" style="font-size:13px;margin-top:3px">' + esc(f.why) + '</div>' : '') +
-            (f.action ? '<div style="font-size:13.5px;margin-top:6px"><strong>This week:</strong> ' + esc(f.action) + '</div>' : '') + '</div>';
-        });
-      } else if (!hasImp) {
-        html += '<p class="ssb-note">Your first weekly report appears after a few days of practice.</p>';
-      }
+    // 5. What your responses highlight: own answers + our note (the evidence).
+    if (D.examples && D.examples.length) {
+      html += '<div class="ssb-panel"><div class="ssb-k">What your responses highlight</div>' +
+        '<p class="ssb-note" style="margin:0 0 6px">A few of your own responses and what we noticed.</p>';
+      D.examples.forEach(function(ex){
+        html += '<div class="ssb-sub">' +
+          (ex.prompt ? '<div style="font-weight:700">' + esc(ex.prompt) + '</div>' : '') +
+          '<div class="muted" style="font-style:italic;margin-top:4px">You wrote: ' + (ex.response ? esc(ex.response) : "(no answer)") + '</div>' +
+          '<div style="font-size:13.5px;margin-top:6px"><strong>We noticed:</strong> ' + esc(ex.comment) + '</div>' + '</div>';
+      });
       html += '</div>';
     }
 
-    // 5. Where you're heading: forecast + recent practice.
+    // 6. Weekly report: what to focus on this week.
+    var wk = (D.weekly && D.weekly.report) ? D.weekly.report : null;
+    html += '<div class="ssb-panel"><div class="ssb-k">Your weekly report</div>';
+    if (wk && wk.headline) html += '<p class="ssb-note">' + esc(wk.headline) + '</p>';
+    if (wk && wk.focus && wk.focus.length) {
+      html += '<div style="font-weight:700;margin:12px 0 2px">What to focus on this week</div>';
+      wk.focus.forEach(function(f){
+        html += '<div class="ssb-sub">' +
+          '<div style="font-weight:600">' + esc(f.pattern || "") + '</div>' +
+          (f.why ? '<div class="muted" style="font-size:13px;margin-top:3px">' + esc(f.why) + '</div>' : '') +
+          (f.action ? '<div style="font-size:13.5px;margin-top:6px"><strong>This week:</strong> ' + esc(f.action) + '</div>' : '') + '</div>';
+      });
+    } else {
+      html += '<p class="ssb-note">Your first weekly report appears after a few days of practice.</p>';
+    }
+    html += '</div>';
+
+    // 7. Where you're heading: forecast + recent practice.
     if (D.forecast || (D.recent && D.recent.length)) {
-      html += '<div class="ssb-panel"><div class="ssb-k">Where you’re heading</div>';
+      html += '<div class="ssb-panel"><div class="ssb-k">Where you' + AP + 're heading</div>';
       if (D.forecast) html += '<p class="ssb-note">' + esc(D.forecast) + '</p>';
       if (D.recent && D.recent.length) {
         html += '<div style="font-weight:700;margin:12px 0 4px;font-size:13.5px">Recent practice</div>' +
@@ -780,10 +818,24 @@
       html += '</div>';
     }
 
-    host.innerHTML = html || '<div class="ssb-panel"><div class="ssb-k">Your structured SSB</div><p class="ssb-note">Your dashboard builds as you practise. Start with today’s challenge.</p></div>';
+    host.innerHTML = html || '<div class="ssb-panel"><div class="ssb-k">Your structured SSB</div><p class="ssb-note">Your dashboard builds as you practise. Start with today' + AP + 's challenge.</p></div>';
 
     var rsvg = document.getElementById("ssb-radar");
     if (rsvg && D.radar && D.radar.length) drawSsbRadar(rsvg, D.radar);
+    var ssvg = document.getElementById("ssb-sit");
+    if (ssvg && sit.length >= 2) drawSsbLine(ssvg, sit);
+    startSsbTicker(mv);
+  }
+
+  function startSsbTicker(items){
+    var el = document.getElementById("ssb-tick");
+    if (!el || !items || items.length < 2) return;
+    var i = 0;
+    if (window._ssbTick) clearInterval(window._ssbTick);
+    window._ssbTick = setInterval(function(){
+      el.style.opacity = "0";
+      setTimeout(function(){ i = (i + 1) % items.length; el.textContent = items[i]; el.style.opacity = "1"; }, 400);
+    }, 3600);
   }
 
   function drawSsbRadar(svg, data){
@@ -792,18 +844,30 @@
     function add(tag, attrs){ var e = document.createElementNS(ns, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); svg.appendChild(e); return e; }
     [0.25, 0.5, 0.75, 1].forEach(function(f){
       var d = data.map(function(_, i){ var p = pt(R * f, i); return (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1); }).join(" ") + "Z";
-      add("path", { d: d, fill: "none", stroke: "rgba(80,100,130,.18)", "stroke-width": "1" });
+      add("path", { d: d, fill: "none", stroke: "rgba(150,170,200,.16)", "stroke-width": "1" });
     });
     data.forEach(function(it, i){
-      var p = pt(R, i); add("line", { x1: cx, y1: cy, x2: p[0].toFixed(1), y2: p[1].toFixed(1), stroke: "rgba(80,100,130,.18)", "stroke-width": "1" });
-      var lp = pt(R + 16, i), t = add("text", { x: lp[0].toFixed(1), y: lp[1].toFixed(1), "font-size": "11", fill: "#54637a" });
+      var p = pt(R, i); add("line", { x1: cx, y1: cy, x2: p[0].toFixed(1), y2: p[1].toFixed(1), stroke: "rgba(150,170,200,.16)", "stroke-width": "1" });
+      var lp = pt(R + 16, i), t = add("text", { x: lp[0].toFixed(1), y: lp[1].toFixed(1), "font-size": "11", fill: "#9aa7bb" });
       t.textContent = it.label;
       t.setAttribute("text-anchor", lp[0] > cx + 2 ? "start" : (lp[0] < cx - 2 ? "end" : "middle"));
       t.setAttribute("dominant-baseline", lp[1] > cy + 2 ? "hanging" : (lp[1] < cy - 2 ? "auto" : "middle"));
     });
     var pts = data.map(function(it, i){ var p = pt(R * (it.value / max), i); return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" ");
-    add("polygon", { points: pts, fill: "rgba(201,162,75,.30)", stroke: "#c9a24b", "stroke-width": "2" });
-    data.forEach(function(it, i){ var p = pt(R * (it.value / max), i); add("circle", { cx: p[0].toFixed(1), cy: p[1].toFixed(1), r: "2.6", fill: "#c9a24b" }); });
+    add("polygon", { points: pts, fill: "rgba(227,185,78,.26)", stroke: "#e3b94e", "stroke-width": "2" });
+    data.forEach(function(it, i){ var p = pt(R * (it.value / max), i); add("circle", { cx: p[0].toFixed(1), cy: p[1].toFixed(1), r: "2.6", fill: "#e3b94e" }); });
+  }
+
+  function drawSsbLine(svg, series){
+    var ns = "http://www.w3.org/2000/svg", w = 320, h = 92, pad = 10, n = series.length;
+    function add(tag, attrs){ var e = document.createElementNS(ns, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); svg.appendChild(e); return e; }
+    var xs = function(i){ return pad + (w - 2 * pad) * (i / (n - 1)); };
+    var ys = function(v){ return h - pad - (h - 2 * pad) * (Math.max(0, Math.min(100, v)) / 100); };
+    [0, 50, 100].forEach(function(g){ add("line", { x1: pad, y1: ys(g).toFixed(1), x2: w - pad, y2: ys(g).toFixed(1), stroke: "rgba(150,170,200,.14)", "stroke-width": "1" }); });
+    var pts = series.map(function(p, i){ return xs(i).toFixed(1) + "," + ys(p.v).toFixed(1); });
+    add("polygon", { points: (pad + "," + (h - pad)) + " " + pts.join(" ") + " " + ((w - pad) + "," + (h - pad)), fill: "rgba(227,185,78,.15)", stroke: "none" });
+    add("polyline", { points: pts.join(" "), fill: "none", stroke: "#e3b94e", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" });
+    var last = pts[pts.length - 1].split(","); add("circle", { cx: last[0], cy: last[1], r: "3", fill: "#e3b94e" });
   }
 
   async function loadSsb(){
